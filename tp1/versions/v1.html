@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weirdle</title>
+    <style>
+        :root {
+            /* Light Theme Variables */
+            --bg-color: #ffffff;
+            --text-color: #121213;
+            --border-color: #d3d6da;
+            --border-color-filled: #878a8c;
+            --key-bg: #d3d6da;
+            --key-text: #121213;
+            
+            /* Game Colors */
+            --correct-bg: #538d4e;
+            --present-bg: #b59f3b;
+            --absent-bg: #787c7e;
+            --highlight-bg: #ff9800;
+            --highlight-text: #ffffff;
+            --white-text: #ffffff;
+            --nav-bg: #f3f3f3;
+            --toast-bg: #121213;
+            --toast-text: #ffffff;
+        }
+
+        body.dark-mode {
+            /* Dark Theme Variables */
+            --bg-color: #121213;
+            --text-color: #d7dadc;
+            --border-color: #3a3a3c;
+            --border-color-filled: #565758;
+            --key-bg: #818384;
+            --key-text: #ffffff;
+            
+            /* Game Colors */
+            --absent-bg: #3a3a3c;
+            --highlight-bg: #00bcd4;
+            --nav-bg: #1e1e1e;
+            --toast-bg: #ffffff;
+            --toast-text: #121213;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            min-height: 100vh;
+            flex-direction: column;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .layout-container {
+            display: flex;
+            flex-direction: row;
+            flex-grow: 1;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        /* Main Game Area */
+        main {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 10px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        header {
+            width: 100%;
+            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Board */
+        #board {
+            display: grid;
+            grid-template-rows: repeat(6, 1fr);
+            gap: 5px;
+            margin-bottom: 30px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+        }
+
+        .cell {
+            width: 58px;
+            height: 58px;
+            border: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .cell[data-state="filled"] {
+            border-color: var(--border-color-filled);
+        }
+
+        .cell.revealed.correct {
+            background-color: var(--correct-bg);
+            border-color: var(--correct-bg);
+            color: var(--white-text);
+        }
+
+        .cell.revealed.present {
+            background-color: var(--present-bg);
+            border-color: var(--present-bg);
+            color: var(--white-text);
+        }
+
+        .cell.revealed.absent {
+            background-color: var(--absent-bg);
+            border-color: var(--absent-bg);
+            color: var(--white-text);
+        }
+
+        /* Keyboard */
+        #keyboard {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            margin-bottom: 20px;
+            pointer-events: none; /* Read only */
+        }
+
+        .keyboard-row {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .key {
+            background-color: var(--key-bg);
+            color: var(--key-text);
+            border-radius: 4px;
+            height: 58px;
+            min-width: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            transition: all 0.1s;
+        }
+
+        .key.highlighted {
+            background-color: var(--highlight-bg);
+            color: var(--highlight-text);
+            transform: scale(1.15);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        /* Controls */
+        #controls {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        #select-btn {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        #select-btn:hover {
+            opacity: 0.9;
+        }
+        
+        #select-btn:active {
+            transform: scale(0.95);
+        }
+
+        #select-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Sidebar Settings */
+        aside#settings {
+            width: 300px;
+            background-color: var(--nav-bg);
+            padding: 25px 20px;
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        aside nav {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        aside h2 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .setting-header {
+            display: flex;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.05rem;
+        }
+
+        .help-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            font-size: 0.8rem;
+            margin-left: 8px;
+            cursor: help;
+            position: relative;
+        }
+
+        /* Tooltip */
+        .help-icon::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 130%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 220px;
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: normal;
+            text-align: center;
+            display: none;
+            z-index: 100;
+            pointer-events: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .help-icon::before {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 6px;
+            border-style: solid;
+            border-color: var(--text-color) transparent transparent transparent;
+            display: none;
+            z-index: 100;
+        }
+
+        .help-icon:hover::after,
+        .help-icon:hover::before,
+        .help-icon:active::after,
+        .help-icon:active::before {
+            display: block;
+        }
+
+        .setting-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+            margin-right: 15px;
+            accent-color: var(--text-color);
+        }
+
+        .setting-val {
+            min-width: 55px;
+            text-align: right;
+            font-size: 0.95rem;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .checkbox-container input {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--text-color);
+            cursor: pointer;
+        }
+
+        #new-game-btn {
+            margin-top: auto;
+            background-color: transparent;
+            color: var(--text-color);
+            border: 2px solid var(--text-color);
+            padding: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        #new-game-btn:hover {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+        }
+
+        /* Footer / Theme Toggle */
+        footer {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 50;
+        }
+
+        #theme-toggle {
+            background: none;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        #theme-toggle:hover {
+            border-color: var(--text-color);
+        }
+
+        /* Toasts Messages */
+        #toast-container {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .toast {
+            background-color: var(--toast-bg);
+            color: var(--toast-text);
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            opacity: 1;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .toast.fade-out {
+            opacity: 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 800px) {
+            .layout-container {
+                flex-direction: column;
+            }
+            
+            aside#settings {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid var(--border-color);
+                padding: 20px 15px;
+            }
+
+            footer {
+                position: relative;
+                bottom: 0;
+                left: 0;
+                display: flex;
+                justify-content: center;
+                padding: 15px;
+                background-color: var(--nav-bg);
+                border-top: 1px solid var(--border-color);
+            }
+            
+            .cell {
+                width: 50px;
+                height: 50px;
+                font-size: 1.6rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .cell {
+                width: 45px;
+                height: 45px;
+                font-size: 1.4rem;
+            }
+            .key {
+                min-width: 28px;
+                height: 48px;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="layout-container">
+        <!-- Main Game Container -->
+        <main>
+            <header>
+                <h1>Weirdle</h1>
+            </header>
+            
+            <div id="toast-container"></div>
+
+            <section id="board" aria-label="Game Board">
+                <!-- 6 Rows, 5 Cells each injected by JS -->
+            </section>
+
+            <section id="keyboard" aria-label="Virtual Keyboard">
+                <!-- Keyboard Rows injected by JS -->
+            </section>
+
+            <section id="controls">
+                <button id="select-btn">Select Letter</button>
+            </section>
+        </main>
+
+        <!-- Right Side Nav -->
+        <aside id="settings">
+            <nav>
+                <h2>Configuration</h2>
+
+                <!-- Option 1: Switch Speed -->
+                <div class="setting-group">
+                    <div class="setting-header">
+                        Switch Speed
+                        <span class="help-icon" data-tooltip="Control how fast the letter switches to another. Measured in milliseconds.">?</span>
+                    </div>
+                    <div class="setting-control">
+                        <input type="range" id="speed-slider" min="100" max="2000" step="50" value="750">
+                        <span class="setting-val" id="speed-val">750ms</span>
+                    </div>
+                </div>
+
+                <!-- Option 2: Hint Delay -->
+                <div class="setting-group">
+                    <div class="setting-header">
+                        Hint Delay
+                        <span class="help-icon" data-tooltip="Control how long the color hints last on a submitted valid word. Measured in milliseconds.">?</span>
+                    </div>
+                    <div class="setting-control">
+                        <input type="range" id="hint-slider" min="200" max="2000" step="100" value="1500">
+                        <span class="setting-val" id="hint-val">1500ms</span>
+                    </div>
+                </div>
+
+                <!-- Option 3: Loser Mode -->
+                <div class="setting-group">
+                    <div class="setting-header">
+                        Loser Mode
+                        <span class="help-icon" data-tooltip="Easier mode for losers. Used, incorrect letters are skipped while jumping.">?</span>
+                    </div>
+                    <div class="setting-control">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="loser-checkbox">
+                            Enable Loser Mode
+                        </label>
+                    </div>
+                </div>
+
+                <button id="new-game-btn">New Game</button>
+            </nav>
+        </aside>
+    </div>
+
+    <footer>
+        <button id="theme-toggle">Dark Mode</button>
+    </footer>
+
+    <script>
+        // --- Word Dictionary ---
+        const VALID_WORDS = [
+            "APPLE", "BRICK", "CRANE", "DANCE", "EAGLE", "FLAME", "GRAPE", "HOUSE", "IMAGE", "JUICE",
+            "KNIFE", "LEMON", "MOUSE", "NIGHT", "OCEAN", "PIZZA", "QUEEN", "RIVER", "SNAKE", "TRAIN",
+            "UNCLE", "VOICE", "WATER", "XENON", "YACHT", "ZEBRA", "ALIEN", "BRAIN", "CLOUD", "DREAM",
+            "EARTH", "FROST", "GHOST", "HEART", "ISLAND", "JOKER", "KITE", "LIGHT", "MAGIC", "NINJA",
+            "ONION", "PLANT", "QUIET", "ROBOT", "STORM", "TIGER", "UMBRA", "VENOM", "WORLD", "YOUTH"
+        ];
+        
+        // --- State Variables ---
+        let secretWord = "";
+        let currentGuess = "";
+        let currentRow = 0;
+        let gameState = "PLAYING"; // PLAYING, WON, LOST
+        
+        let LETTER_JUMP_MS = 750;
+        let SHOW_HINT_MS = 1500;
+        let loserMode = false;
+        
+        let wrongLetters = new Set();
+        let highlightedKey = "";
+        let jumpInterval = null;
+
+        // --- DOM Elements ---
+        const boardEl = document.getElementById("board");
+        const keyboardEl = document.getElementById("keyboard");
+        const selectBtn = document.getElementById("select-btn");
+        const toastContainer = document.getElementById("toast-container");
+        
+        const speedSlider = document.getElementById("speed-slider");
+        const speedVal = document.getElementById("speed-val");
+        const hintSlider = document.getElementById("hint-slider");
+        const hintVal = document.getElementById("hint-val");
+        const loserCheckbox = document.getElementById("loser-checkbox");
+        const newGameBtn = document.getElementById("new-game-btn");
+        const themeToggleBtn = document.getElementById("theme-toggle");
+
+        // --- Initialization ---
+        function initBoard() {
+            boardEl.innerHTML = "";
+            for (let r = 0; r < 6; r++) {
+                const rowEl = document.createElement("div");
+                rowEl.className = "row";
+                rowEl.id = `row-${r}`;
+                for (let c = 0; c < 5; c++) {
+                    const cellEl = document.createElement("div");
+                    cellEl.className = "cell";
+                    cellEl.id = `cell-${r}-${c}`;
+                    rowEl.appendChild(cellEl);
+                }
+                boardEl.appendChild(rowEl);
+            }
+        }
+
+        function initKeyboard() {
+            const layout = [
+                ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+                ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+                ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
+            ];
+            keyboardEl.innerHTML = "";
+            layout.forEach(row => {
+                const rowEl = document.createElement("div");
+                rowEl.className = "keyboard-row";
+                row.forEach(key => {
+                    const keyEl = document.createElement("div");
+                    keyEl.className = "key";
+                    keyEl.id = `key-${key}`;
+                    keyEl.textContent = key;
+                    rowEl.appendChild(keyEl);
+                });
+                keyboardEl.appendChild(rowEl);
+            });
+        }
+
+        function getAvailableLetters() {
+            const allLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+            if (loserMode) {
+                const filtered = allLetters.filter(l => !wrongLetters.has(l));
+                // Fallback in case they somehow exhaust all letters (impossible with 6 rows, but safe)
+                return filtered.length > 0 ? filtered : allLetters;
+            }
+            return allLetters;
+        }
+
+        function jumpLetter() {
+            if (gameState !== "PLAYING") return;
+            
+            const pool = getAvailableLetters();
+            let nextLetter;
+            
+            // Prevent same letter twice in a row if pool is big enough
+            do {
+                nextLetter = pool[Math.floor(Math.random() * pool.length)];
+            } while (pool.length > 1 && nextLetter === highlightedKey);
+
+            // Update UI
+            if (highlightedKey) {
+                const oldKeyEl = document.getElementById(`key-${highlightedKey}`);
+                if (oldKeyEl) oldKeyEl.classList.remove("highlighted");
+            }
+            
+            highlightedKey = nextLetter;
+            const newKeyEl = document.getElementById(`key-${highlightedKey}`);
+            if (newKeyEl) newKeyEl.classList.add("highlighted");
+        }
+
+        function startJumping() {
+            if (jumpInterval) clearInterval(jumpInterval);
+            jumpLetter(); // Initial jump
+            jumpInterval = setInterval(jumpLetter, LETTER_JUMP_MS);
+        }
+
+        function stopJumping() {
+            if (jumpInterval) clearInterval(jumpInterval);
+            if (highlightedKey) {
+                const keyEl = document.getElementById(`key-${highlightedKey}`);
+                if (keyEl) keyEl.classList.remove("highlighted");
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement("div");
+            toast.className = "toast";
+            toast.textContent = msg;
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add("fade-out");
+                toast.addEventListener("transitionend", () => toast.remove());
+            }, 2000);
+        }
+
+        function updateBoardUI() {
+            const rowCells = document.querySelectorAll(`#row-${currentRow} .cell`);
+            for (let i = 0; i < 5; i++) {
+                rowCells[i].textContent = currentGuess[i] || "";
+                if (currentGuess[i]) {
+                    rowCells[i].setAttribute("data-state", "filled");
+                } else {
+                    rowCells[i].removeAttribute("data-state");
+                }
+            }
+        }
+
+        function processGuess() {
+            if (currentGuess.length !== 5) return;
+            
+            if (!VALID_WORDS.includes(currentGuess)) {
+                showToast("Not in word list");
+                selectBtn.disabled = true;
+                
+                // Annoying mechanism: Wipe row on invalid word after a tiny delay to see the mistake
+                setTimeout(() => {
+                    currentGuess = "";
+                    updateBoardUI();
+                    selectBtn.disabled = false;
+                }, 600);
+                return;
+            }
+
+            selectBtn.disabled = true; // Block input while processing hints
+            
+            let guessArr = currentGuess.split("");
+            let secretArr = secretWord.split("");
+            let statuses = new Array(5).fill("absent");
+            let letterCounts = {};
+
+            // Count letters in secret word
+            for (let l of secretArr) {
+                letterCounts[l] = (letterCounts[l] || 0) + 1;
+            }
+
+            // Find Greens (Correct)
+            for (let i = 0; i < 5; i++) {
+                if (guessArr[i] === secretArr[i]) {
+                    statuses[i] = "correct";
+                    letterCounts[guessArr[i]]--;
+                }
+            }
+
+            // Find Yellows (Present) and Grays (Absent)
+            for (let i = 0; i < 5; i++) {
+                if (statuses[i] === "absent" && letterCounts[guessArr[i]] > 0) {
+                    statuses[i] = "present";
+                    letterCounts[guessArr[i]]--;
+                } else if (statuses[i] === "absent") {
+                    wrongLetters.add(guessArr[i]);
+                }
+            }
+
+            // Apply Hint Classes
+            const rowIdx = currentRow;
+            const rowCells = document.querySelectorAll(`#row-${rowIdx} .cell`);
+            for (let i = 0; i < 5; i++) {
+                rowCells[i].classList.add("revealed", statuses[i]);
+            }
+
+            // Check Win / Loss state
+            const isWin = currentGuess === secretWord;
+            const isLoss = !isWin && currentRow === 5;
+            
+            // Hints disappear mechanic
+            setTimeout(() => {
+                for (let i = 0; i < 5; i++) {
+                    rowCells[i].classList.remove("revealed", "correct", "present", "absent");
+                }
+                
+                if (isWin) {
+                    gameState = "WON";
+                    stopJumping();
+                    showToast("You Won!");
+                } else if (isLoss) {
+                    gameState = "LOST";
+                    stopJumping();
+                    showToast(secretWord);
+                } else {
+                    // Continue game
+                    currentRow++;
+                    currentGuess = "";
+                    selectBtn.disabled = false;
+                }
+            }, SHOW_HINT_MS);
+        }
+
+        // --- Event Listeners ---
+        selectBtn.addEventListener("click", () => {
+            if (gameState !== "PLAYING" || currentGuess.length >= 5) return;
+            
+            currentGuess += highlightedKey;
+            updateBoardUI();
+
+            if (currentGuess.length === 5) {
+                processGuess();
+            }
+        });
+
+        // Config Controls
+        speedSlider.addEventListener("input", (e) => {
+            LETTER_JUMP_MS = parseInt(e.target.value);
+            speedVal.textContent = `${LETTER_JUMP_MS}ms`;
+            if (gameState === "PLAYING") startJumping();
+        });
+
+        hintSlider.addEventListener("input", (e) => {
+            SHOW_HINT_MS = parseInt(e.target.value);
+            hintVal.textContent = `${SHOW_HINT_MS}ms`;
+        });
+
+        loserCheckbox.addEventListener("change", (e) => {
+            loserMode = e.target.checked;
+        });
+
+        newGameBtn.addEventListener("click", startNewGame);
+
+        // Theme Toggle
+        themeToggleBtn.addEventListener("click", () => {
+            document.body.classList.toggle("dark-mode");
+            if (document.body.classList.contains("dark-mode")) {
+                themeToggleBtn.textContent = "Light Mode";
+            } else {
+                themeToggleBtn.textContent = "Dark Mode";
+            }
+        });
+
+        // Block direct physical keyboard input 
+        // (Not strictly necessary since we don't listen for it, but adds safety)
+        document.addEventListener("keydown", (e) => {
+            // Only allow standard navigation/reload keys
+            if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+                e.preventDefault();
+            }
+        });
+
+        // --- Core Loop ---
+        function startNewGame() {
+            secretWord = VALID_WORDS[Math.floor(Math.random() * VALID_WORDS.length)];
+            currentGuess = "";
+            currentRow = 0;
+            gameState = "PLAYING";
+            wrongLetters.clear();
+            selectBtn.disabled = false;
+            
+            initBoard();
+            initKeyboard();
+            startJumping();
+        }
+
+        // Initial Boot
+        startNewGame();
+    </script>
+</body>
+</html>
