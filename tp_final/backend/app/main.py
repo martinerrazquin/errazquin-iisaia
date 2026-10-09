@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.auth import TokenVerifier
 from app.config import Settings
 from app.db import make_session_factory
 from app.errors import install_error_handlers
@@ -24,12 +25,14 @@ def create_app(
     settings: Settings | None = None,
     *,
     session_factory: sessionmaker[Session] | None = None,
+    verifier: TokenVerifier | None = None,
 ) -> FastAPI:
     settings = settings or Settings()
     _configure_logging()
     app = FastAPI(title="Chismoso", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.settings = settings
     app.state.session_factory = session_factory or make_session_factory(settings.database_url)
+    app.state.verifier = verifier or TokenVerifier(settings)
     install_error_handlers(app)
     install_middleware(app)
     return app
