@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 from sqlalchemy.orm import Session, sessionmaker
 
-from app import consume, shares
+from app import admin, consume, shares
 from app.auth import TokenVerifier
 from app.config import Settings
 from app.db import make_session_factory
@@ -38,4 +38,5 @@ def create_app(
     install_middleware(app)
     app.include_router(shares.router)
     app.include_router(consume.router)
+    app.include_router(admin.router)
     return app
