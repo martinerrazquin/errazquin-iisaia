@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { User } from 'oidc-client-ts'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../../api'
 import { ApiError } from '../../api'
+import { AuthContext } from '../../auth/context'
 import { TestAuthProvider } from '../../test/auth'
 import { AdminPage } from './AdminPage'
 
@@ -80,5 +82,30 @@ describe('AdminPage', () => {
     listAdminShares.mockRejectedValue(new ApiError(401, 'invalid_authentication'))
     const { onExpire } = renderPage()
     await vi.waitFor(() => expect(onExpire).toHaveBeenCalled())
+  })
+
+  it('expires the session instead of spinning when the token lapses before changing page', async () => {
+    listAdminShares.mockResolvedValue({ items: [ITEM], page: 1, page_size: 50, total: 120 })
+    let token: string | null = 'admin-token'
+    const expireSession = vi.fn()
+    const value = {
+      user: { access_token: 'admin-token', profile: { preferred_username: 'flapinto' } } as unknown as User,
+      getAccessToken: () => token,
+      login: async () => true,
+      logout: async () => {},
+      expireSession,
+    }
+    render(
+      <AuthContext.Provider value={value}>
+        <AdminPage />
+      </AuthContext.Provider>,
+    )
+    await screen.findByText('Staging DB')
+    expect(expireSession).not.toHaveBeenCalled()
+    token = null
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
+    expect(expireSession).toHaveBeenCalled()
+    expect(listAdminShares).toHaveBeenCalledTimes(1)
+    expect(listAdminShares).not.toHaveBeenCalledWith(expect.anything(), 2, 50)
   })
 })

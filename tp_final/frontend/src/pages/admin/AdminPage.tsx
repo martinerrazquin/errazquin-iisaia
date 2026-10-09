@@ -18,7 +18,11 @@ export function AdminPage() {
   const accessToken = getAccessToken()
 
   useEffect(() => {
-    if (accessToken === null) return
+    if (accessToken === null) {
+      // Token expired (or about to): hand control back to RequireLogin instead of spinning forever.
+      expireSession()
+      return
+    }
     let cancelled = false
     listAdminShares(accessToken, page, PAGE_SIZE).then(
       (data) => {
