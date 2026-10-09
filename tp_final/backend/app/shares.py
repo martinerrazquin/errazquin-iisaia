@@ -65,6 +65,15 @@ class CreatedShare:
     grants: list[tuple[str, str]]  # (recipient, raw access token)
 
 
+def _is_utf8_encodable(text: str) -> bool:
+    # JSON allows lone UTF-16 surrogates ("\ud800"), which PostgreSQL cannot store.
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 def validate_create_request(body: CreateShareRequest, settings: Settings) -> ValidatedShare:
     try:
         ciphertext = decode_b64url(body.ciphertext, max_bytes=settings.max_ciphertext_bytes)
@@ -91,7 +100,7 @@ def validate_create_request(body: CreateShareRequest, settings: Settings) -> Val
     label = (body.label or "").strip() or None
     if label is not None and len(label) > settings.max_label_length:
         raise invalid_request("label is too long.")
-    if label is not None and "\x00" in label:
+    if label is not None and ("\x00" in label or not _is_utf8_encodable(label)):
         raise invalid_request("label contains invalid characters.")
     return ValidatedShare(
         ciphertext=ciphertext,

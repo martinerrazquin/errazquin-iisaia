@@ -1,4 +1,5 @@
 import hashlib
+import json
 import uuid
 from datetime import timedelta
 
@@ -110,6 +111,19 @@ def test_unknown_positive_crypto_version_is_stored_opaquely(client, auth_headers
 )
 def test_invalid_input_is_rejected_without_writes(client, auth_headers, session_factory, overrides):
     response = client.post(URL, json=valid_body(**overrides), headers=auth_headers())
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_request"
+    assert row_counts(session_factory) == (0, 0, 0)
+
+
+def test_label_with_lone_surrogate_is_rejected_without_writes(client, auth_headers, session_factory):
+    # A lone UTF-16 surrogate is valid JSON but cannot be encoded as UTF-8 for PostgreSQL.
+    body = json.dumps(valid_body(label="x"))
+    body = body.replace('"label": "x"', '"label": "x\\ud800y"')
+    assert "\\ud800" in body
+    response = client.post(
+        URL, content=body.encode(), headers={**auth_headers(), "Content-Type": "application/json"}
+    )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_request"
     assert row_counts(session_factory) == (0, 0, 0)
