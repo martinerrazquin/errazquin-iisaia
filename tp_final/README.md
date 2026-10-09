@@ -69,7 +69,7 @@ Dev users (password = lowercase first name; only `flapinto` is an admin):
 
 Typical flow: log in as `aperez` on `/`, create a share for `bgonzalez`, copy the link, open it in another browser profile, log in as `bgonzalez` and click the reveal button. Tokens are kept in memory only, so reloading a page requires one more click on the login button. The login popup is mandatory: closing it shows an error and the page stays usable.
 
-Stop with `docker compose down`. Add `-v` only if you want to delete the database volume.
+Stop with `docker compose down`. `docker compose down -v` additionally deletes this dev project's (`chismoso`) volumes: `chismoso_db-data`, which holds both the dev database and `chismoso_test`, and `chismoso_frontend-node-modules`. Use it only to start from scratch.
 
 ## Tests
 
@@ -90,7 +90,7 @@ npm run build
 npm run lint
 ```
 
-Browser e2e against the running dev stack and the real Keycloak (12 tests: create/consume flows in individual and shared modes, wrong user, tampered key, no auto-consume, admin, size limit, HMR WebSocket through the proxy, full-flow CSP check, copy-link, closing the login popup):
+Browser e2e against the running dev stack and the real Keycloak (12 tests: create/consume flows in individual and shared modes, wrong user, tampered key, no auto-consume, malformed link, admin, size limit, HMR WebSocket through the proxy, full-flow CSP check, copy-link, closing the login popup):
 
 ```bash
 cd frontend
@@ -98,7 +98,7 @@ npx playwright install chromium   # first time only
 npm run e2e
 ```
 
-Production-like smoke test (2 tests: strict headers and a create/reveal flow with no CSP violations). The dev and prod-like stacks both bind `127.0.0.1:3000`, so run one at a time. Do not use `-v`, which would delete the dev database:
+Production-like smoke test (2 tests: strict headers and a create/reveal flow with no CSP violations). The dev and prod-like stacks both bind `127.0.0.1:3000`, so run one at a time. Do not add `-v` to the first `docker compose down`: that would delete the dev project's `chismoso_db-data` volume. The prod-like stack is a separate Compose project (`chismoso-prod`) with its own `chismoso-prod_db-data` volume, which is all that `-v` on its `down` would delete:
 
 ```bash
 docker compose down
@@ -145,11 +145,11 @@ Caddy additionally caps API request bodies at 256 KB.
 ## Production notes
 
 - **Secure context is mandatory.** WebCrypto and the clipboard API need a secure context, so the browser origin must be HTTPS with a certificate the clients trust. The app shows an explanatory message on insecure origins instead of failing silently. Plain HTTP works only on `*.localhost`.
-- **TLS.** Terminate it at the corporate gateway, or at Caddy (replace the `http://:3000` site and `auto_https off` in `infra/caddy/Caddyfile.prod` and mount the certificate). The operator provisions the certificates; there is no in-app PKI.
+- **TLS.** Terminate it at the corporate gateway, or at Caddy (replace the `http://:3000` site and `auto_https off` in `infra/caddy/Caddyfile.prod`, mount the certificate, and publish port 443 on a non-loopback interface; `compose.prod.yaml` publishes only `127.0.0.1:3000`). The operator provisions the certificates; there is no in-app PKI.
 - **Compose.** Use `compose.prod.yaml` as the template, minus the `idp` network (and its `networks:` entries), and with `OIDC_JWKS_URL` empty. Set real database credentials and provide your own persistence and backups for the `db-data` volume.
 - **Keycloak.** The client needs the production redirect URI `https://<host>/*` and the matching web origin. The access token must carry the audience `OIDC_EXPECTED_AUDIENCE` and the admin role under the client `OIDC_ADMIN_CLIENT_ID`.
 - **CSP.** `OIDC_ORIGIN` must be the production IdP origin; the production CSP has no `unsafe-inline` and no `ws:`.
-- **Sessions.** Access tokens are used from memory only and there is no silent renew. When a token expires the UI asks for a new login and keeps what the user typed.
+- **Sessions.** Access tokens are used from memory only and there is no silent renew. When a token expires the UI asks for a new login and keeps what the user typed. "Cerrar sesión" only clears this tab's in-memory session: the Keycloak SSO session remains, so the next login may complete in one click without a password.
 - **Logs.** Backend logs contain only method, route template, status and latency, plus the exception type for unhandled errors. They never contain tokens, keys, bodies, query strings or full URLs.
 
 ## Design decisions
