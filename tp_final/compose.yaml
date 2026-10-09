@@ -18,10 +18,15 @@ services:
   backend:
     build: ./backend
     env_file: .env
-    command: >
-      sh -c "alembic upgrade head &&
-             uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
-             --no-access-log --reload --reload-dir app"
+    # Keep the script lines equally indented: YAML keeps the newline before a more-indented
+    # line, which would end the uvicorn command early and drop the flags that follow.
+    command:
+      - sh
+      - -c
+      - >-
+        alembic upgrade head &&
+        uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+        --no-access-log --reload --reload-dir app
     volumes:
       - ./backend:/app
     depends_on:
