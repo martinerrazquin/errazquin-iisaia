@@ -147,20 +147,66 @@ test('MAX_PLAINTEXT_BYTES is enforced by the UI and a max-size secret is accepte
 })
 
 test('dev server hot reload websocket connects through the proxy', async ({ page }) => {
-  const sockets: string[] = []
-  page.on('websocket', (ws) => sockets.push(ws.url()))
+  // 'websocket' fires before the handshake; only a frame from Vite proves Caddy forwarded the upgrade and Vite accepted it.
+  let connected = false
+  page.on('websocket', (ws) => {
+    if (!ws.url().startsWith('ws://app.localhost:3000')) return
+    ws.on('framereceived', (frame) => {
+      if (typeof frame.payload === 'string' && frame.payload.includes('"type":"connected"')) connected = true
+    })
+  })
   await page.goto('/')
-  await expect.poll(() => sockets.some((url) => url.startsWith('ws://app.localhost:3000'))).toBe(true)
+  await expect.poll(() => connected).toBe(true)
 })
 
 test('no CSP violations during a full dev flow', async ({ browser }) => {
-  const sender = await newUserPage(browser, 'aperez')
   const violations: string[] = []
-  sender.on('console', (message) => {
-    if (message.text().includes('Content Security Policy')) violations.push(message.text())
-  })
-  await createShare(sender, { plaintext: unique('csp'), recipients: ['bgonzalez'], label: unique('e2e csp') })
+  // Instrument the whole context before the first navigation, so login popups and callback pages are covered too.
+  async function instrumentedPage() {
+    const context = await browser.newContext()
+    await context.addInitScript(() => {
+      document.addEventListener('securitypolicyviolation', (event) => {
+        console.error(`CSP violation: ${event.violatedDirective} blocked ${event.blockedURI} on ${location.origin}`)
+      })
+    })
+    context.on('console', (message) => {
+      const text = message.text()
+      if (text.includes('Content Security Policy') || text.startsWith('CSP violation:')) violations.push(text)
+    })
+    return context.newPage()
+  }
+
+  const sender = await instrumentedPage()
+  await sender.goto('/')
+  await loginViaPopup(sender, 'aperez')
+  const secret = unique('csp')
+  const links = await createShare(sender, { plaintext: secret, recipients: ['bgonzalez'], label: unique('e2e csp') })
+
+  const recipient = await instrumentedPage()
+  await recipient.goto(links.bgonzalez)
+  await loginViaPopup(recipient, 'bgonzalez')
+  await reveal(recipient)
+  await expect(recipient.getByLabel('Secreto revelado')).toHaveValue(secret)
+
   expect(violations).toEqual([])
+})
+
+test('copy-link button puts the exact link on the clipboard and the copied link works', async ({ browser }) => {
+  const sender = await newUserPage(browser, 'aperez')
+  await sender.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://app.localhost:3000' })
+  const secret = unique('copied-link')
+  const links = await createShare(sender, { plaintext: secret, recipients: ['bgonzalez', 'csaul'], label: unique('e2e copy') })
+
+  const row = sender.getByTestId('share-links').locator('li[data-recipient="csaul"]')
+  await row.getByRole('button', { name: 'Copiar enlace' }).click()
+  await expect(row.getByRole('button', { name: 'Copiado' })).toBeVisible()
+  const copied = await sender.evaluate(() => navigator.clipboard.readText())
+  expect(copied).toBe(links.csaul)
+  expect(copied).not.toBe(links.bgonzalez)
+
+  const page = await openLinkAs(browser, 'csaul', copied)
+  await reveal(page)
+  await expect(page.getByLabel('Secreto revelado')).toHaveValue(secret)
 })
 
 test('closing the login popup shows a Spanish error and keeps the page usable', async ({ browser }) => {
