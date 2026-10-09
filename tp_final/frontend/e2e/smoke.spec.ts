@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createShare, newUserPage, openLinkAs, reveal } from './support'
+import { createShare, instrumentedPage, loginViaPopup, reveal } from './support'
 
 test('serves the static bundle with the strict production headers', async ({ request }) => {
   const response = await request.get('/')
@@ -19,18 +19,17 @@ test('serves the static bundle with the strict production headers', async ({ req
 })
 
 test('create and reveal work under the strict CSP with no violations', async ({ browser }) => {
-  const sender = await newUserPage(browser, 'aperez')
+  // Both contexts are watched from before their first navigation: initial load, login popup, callback and reveal.
   const violations: string[] = []
-  sender.on('console', (message) => {
-    if (message.text().includes('Content Security Policy')) violations.push(message.text())
-  })
+  const sender = await instrumentedPage(browser, violations)
+  await sender.goto('/')
+  await loginViaPopup(sender, 'aperez')
   const secret = `smoke ${Date.now()} ñ`
   const links = await createShare(sender, { plaintext: secret, recipients: ['bgonzalez'], label: `smoke ${Date.now()}` })
 
-  const recipient = await openLinkAs(browser, 'bgonzalez', links.bgonzalez)
-  recipient.on('console', (message) => {
-    if (message.text().includes('Content Security Policy')) violations.push(message.text())
-  })
+  const recipient = await instrumentedPage(browser, violations)
+  await recipient.goto(links.bgonzalez)
+  await loginViaPopup(recipient, 'bgonzalez')
   await reveal(recipient)
   await expect(recipient.getByLabel('Secreto revelado')).toHaveValue(secret)
   expect(violations).toEqual([])

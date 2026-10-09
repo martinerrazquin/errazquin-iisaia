@@ -36,6 +36,24 @@ export async function loginViaPopup(page: Page, username: string): Promise<void>
   await expect(page.getByText(`Sesión: ${username}`)).toBeVisible()
 }
 
+/**
+ * Fresh browser context instrumented before its first navigation, so login popups and callback pages are covered too.
+ * Every CSP violation (browser console report or `securitypolicyviolation` event) is appended to `violations`.
+ */
+export async function instrumentedPage(browser: Browser, violations: string[]): Promise<Page> {
+  const context = await browser.newContext()
+  await context.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (event) => {
+      console.error(`CSP violation: ${event.violatedDirective} blocked ${event.blockedURI} on ${location.origin}`)
+    })
+  })
+  context.on('console', (message) => {
+    const text = message.text()
+    if (text.includes('Content Security Policy') || text.startsWith('CSP violation:')) violations.push(text)
+  })
+  return context.newPage()
+}
+
 export async function newUserPage(browser: Browser, username: string): Promise<Page> {
   const context = await browser.newContext()
   const page = await context.newPage()

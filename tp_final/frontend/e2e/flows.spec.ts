@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createShare, fragmentParts, loginViaPopup, newUserPage, openLinkAs, PASSWORDS, reveal } from './support'
+import { createShare, fragmentParts, instrumentedPage, loginViaPopup, newUserPage, openLinkAs, PASSWORDS, reveal } from './support'
 
 const LINK_SHAPE = /^http:\/\/app\.localhost:3000\/s#v=1&t=[A-Za-z0-9_-]{43}&k=[A-Za-z0-9_-]{43}$/
 const unique = (prefix: string) => `${prefix} ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -161,28 +161,13 @@ test('dev server hot reload websocket connects through the proxy', async ({ page
 
 test('no CSP violations during a full dev flow', async ({ browser }) => {
   const violations: string[] = []
-  // Instrument the whole context before the first navigation, so login popups and callback pages are covered too.
-  async function instrumentedPage() {
-    const context = await browser.newContext()
-    await context.addInitScript(() => {
-      document.addEventListener('securitypolicyviolation', (event) => {
-        console.error(`CSP violation: ${event.violatedDirective} blocked ${event.blockedURI} on ${location.origin}`)
-      })
-    })
-    context.on('console', (message) => {
-      const text = message.text()
-      if (text.includes('Content Security Policy') || text.startsWith('CSP violation:')) violations.push(text)
-    })
-    return context.newPage()
-  }
-
-  const sender = await instrumentedPage()
+  const sender = await instrumentedPage(browser, violations)
   await sender.goto('/')
   await loginViaPopup(sender, 'aperez')
   const secret = unique('csp')
   const links = await createShare(sender, { plaintext: secret, recipients: ['bgonzalez'], label: unique('e2e csp') })
 
-  const recipient = await instrumentedPage()
+  const recipient = await instrumentedPage(browser, violations)
   await recipient.goto(links.bgonzalez)
   await loginViaPopup(recipient, 'bgonzalez')
   await reveal(recipient)
