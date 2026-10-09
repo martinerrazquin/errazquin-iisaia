@@ -6,7 +6,7 @@ from alembic import command
 from alembic.config import Config as AlembicConfig
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, make_url, text
 from sqlalchemy.orm import sessionmaker
 
 from app.auth import TokenVerifier
@@ -19,6 +19,10 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 @pytest.fixture(scope="session")
 def engine():
+    # The schema is dropped below: refuse anything that is not explicitly a test database.
+    database = make_url(TEST_DATABASE_URL).database or ""
+    if not database.endswith("_test"):
+        pytest.exit(f"Refusing to reset database {database!r}: TEST_DATABASE_URL must name a *_test database.", 2)
     engine = create_engine(TEST_DATABASE_URL, hide_parameters=True)
     with engine.begin() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE"))
