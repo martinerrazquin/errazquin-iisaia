@@ -1,0 +1,33 @@
+{
+  "aad": "secret-handoff:v1",
+  "vectors": [
+    {
+      "name": "ascii",
+      "plaintext": "correct horse battery staple",
+      "cek": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      "nonce": "ZGVmZ2hpamtsbW5v",
+      "ciphertext": "K3SsFByKIr5WDS2bv0UInDa2Y3jyTIAGxqHALRDPgeQbo47i8e30dUih-9Q"
+    },
+    {
+      "name": "utf8-multibyte",
+      "plaintext": "contraseña: ñandú 🔐 — «secreto»",
+      "cek": "paWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaU",
+      "nonce": "WlpaWlpaWlpaWlpa",
+      "ciphertext": "y-VrZY1GZrL3wbrPvZigYoXkFJaoyXOOAHcgcJFJ0Z07Kpc8rI53wOX0OVe46aklTposZR0ZnVzF"
+    },
+    {
+      "name": "multiline",
+      "plaintext": "line one\nline two\r\n\ttabbed",
+      "cek": "__79_Pv6-fj39vX08_Lx8O_u7ezr6uno5-bl5OPi4eA",
+      "nonce": "AAECAwQFBgcICQoL",
+      "ciphertext": "u_uXbcTEcHGa9JZtDtwTyIOo6HOHlUE7aWVKxi2Bc3YLRAUjETAdaytX"
+    },
+    {
+      "name": "empty",
+      "plaintext": "",
+      "cek": "ERERERERERERERERERERERERERERERERERERERERERE",
+      "nonce": "AAAAAAAAAAAAAAAA",
+      "ciphertext": "gKQ1q_g13_CW6YD9rySllg"
+    }
+  ]
+}
