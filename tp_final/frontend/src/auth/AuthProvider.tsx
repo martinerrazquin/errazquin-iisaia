@@ -11,7 +11,8 @@ export function AuthProvider({ userManager, children }: { userManager: PopupUser
 
   const login = useCallback(async () => {
     try {
-      setUser(await userManager.signinPopup())
+      // popupAbortOnClose is per-call only in oidc-client-ts 3.x; without it a closed/blocked popup never settles.
+      setUser(await userManager.signinPopup({ popupAbortOnClose: true }))
       return true
     } catch {
       return false

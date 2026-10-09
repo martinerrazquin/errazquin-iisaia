@@ -50,6 +50,13 @@ describe('AuthProvider', () => {
     expect(manager.signinPopup).toHaveBeenCalledTimes(1)
   })
 
+  it('asks the library to abort when the popup is closed or blocked', async () => {
+    const manager = renderWith(async () => fakeUser())
+    await userEvent.click(screen.getByText('login'))
+    await screen.findByText('ok')
+    expect(manager.signinPopup).toHaveBeenCalledWith(expect.objectContaining({ popupAbortOnClose: true }))
+  })
+
   it('reports failure when the popup is closed or blocked', async () => {
     renderWith(async () => {
       throw new Error('Popup closed by user')
