@@ -2,7 +2,9 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
 from sqlalchemy import delete, func, select, text, update
+from sqlalchemy.exc import OperationalError
 
 from app.consume import consume_grant
 from app.errors import AppError
@@ -72,23 +74,29 @@ def test_consume_locks_share_before_grant(session_factory):
         grant_id = session.scalar(select(RecipientGrant.id))
 
     holder = session_factory()
-    holder.begin()
-    holder.execute(select(Share).where(Share.id == share_id).with_for_update()).scalar_one()
     try:
+        holder.begin()
+        holder.execute(select(Share).where(Share.id == share_id).with_for_update()).scalar_one()
         with ThreadPoolExecutor(1) as pool:
             future = pool.submit(attempt_consume, session_factory, tokens["bgonzalez"], "bgonzalez")
-            time.sleep(0.5)
-            assert not future.done(), "consume must wait for the Share lock"
-            # If consume had locked the grant before the Share, NOWAIT would raise LockNotAvailable.
-            with session_factory() as probe, probe.begin():
-                probe.execute(
-                    text("SELECT id FROM recipient_grants WHERE id = :id FOR UPDATE NOWAIT"), {"id": grant_id}
-                )
-            holder.rollback()
+            try:
+                time.sleep(0.5)
+                assert not future.done(), "consume must wait for the Share lock"
+                # If consume had locked the grant before the Share, NOWAIT would raise LockNotAvailable.
+                with session_factory() as probe, probe.begin():
+                    try:
+                        probe.execute(
+                            text("SELECT id FROM recipient_grants WHERE id = :id FOR UPDATE NOWAIT"), {"id": grant_id}
+                        )
+                    except OperationalError:
+                        pytest.fail("consume locked the RecipientGrant before the Share")
+            finally:
+                # Release the Share lock before the pool's shutdown(wait=True) joins the blocked consume thread;
+                # otherwise any failure above would hang the test instead of failing it.
+                holder.rollback()
             assert future.result(timeout=10) == "ok"
     finally:
         holder.close()
-
 
 def simulated_cleanup(session_factory, share_id) -> str:
     """Future cleanup worker shape (base spec §12.3): Share lock, then grants, then delete payload."""
