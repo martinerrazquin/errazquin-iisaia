@@ -15,5 +15,49 @@ services:
       timeout: 3s
       retries: 30
 
+  backend:
+    build: ./backend
+    env_file: .env
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+             --no-access-log --reload --reload-dir app"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [default, idp]
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    environment:
+      VITE_MAX_PLAINTEXT_BYTES: ${MAX_PLAINTEXT_BYTES}
+      VITE_OIDC_ISSUER: ${OIDC_ISSUER}
+      VITE_OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+    command: sh -c "npm ci && npm run dev"
+    volumes:
+      - ./frontend:/app
+      # Container-native node_modules (Alpine/musl) instead of the host's.
+      - frontend-node-modules:/app/node_modules
+
+  proxy:
+    image: caddy:2-alpine
+    environment:
+      OIDC_ORIGIN: ${OIDC_ORIGIN}
+    volumes:
+      - ./infra/caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on: [backend, frontend]
+
+networks:
+  # The separately operated Keycloak stack's network; used only to fetch JWKS (OIDC_JWKS_URL).
+  idp:
+    external: true
+    name: ${IDP_DOCKER_NETWORK:-chismoso-idp_default}
+
 volumes:
   db-data:
+  frontend-node-modules:
