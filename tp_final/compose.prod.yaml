@@ -1,0 +1,46 @@
+# Production-like local smoke stack. Run it instead of (not alongside) compose.yaml: both use port 3000.
+name: chismoso-prod
+
+services:
+  db:
+    image: postgres:18-alpine
+    env_file: .env
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    build: ./backend
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    # The IdP network is only needed because the local Keycloak is reached over Docker.
+    # Real deployments drop it and leave OIDC_JWKS_URL empty.
+    networks: [default, idp]
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_MAX_PLAINTEXT_BYTES: ${MAX_PLAINTEXT_BYTES}
+        VITE_OIDC_ISSUER: ${OIDC_ISSUER}
+        VITE_OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+    environment:
+      OIDC_ORIGIN: ${OIDC_ORIGIN}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on: [backend]
+
+networks:
+  idp:
+    external: true
+    name: ${IDP_DOCKER_NETWORK:-chismoso-idp_default}
+
+volumes:
+  db-data:
