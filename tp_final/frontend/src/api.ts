@@ -72,7 +72,12 @@ async function request<T>(path: string, accessToken: string, init: RequestInit =
     }
     throw new ApiError(response.status, code)
   }
-  return (await response.json()) as T
+  try {
+    return (await response.json()) as T
+  } catch {
+    // The request may have taken effect, but the client cannot confirm it: treat as uncertain.
+    throw new ApiError(0, 'network_error')
+  }
 }
 
 export function createShare(accessToken: string, body: CreateShareRequest): Promise<CreateShareResponse> {

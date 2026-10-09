@@ -65,4 +65,23 @@ describe('api client', () => {
     expect(error).toBeInstanceOf(ApiError)
     expect(error).toMatchObject({ status: 0, code: 'network_error' })
   })
+
+  it('maps a 2xx response with a non-JSON body to status 0 network_error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>', { status: 200 })))
+    const error = await consumeShare('t', 's').catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ status: 0, code: 'network_error' })
+  })
+
+  it('maps a 2xx response whose body read fails to status 0 network_error', async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.error(new TypeError('network error'))
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(stream, { status: 200 })))
+    const error = await consumeShare('t', 's').catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ status: 0, code: 'network_error' })
+  })
 })
