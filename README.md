@@ -8,4 +8,4 @@ Repositorio para implementaciones de la materia Introducción a la Ingeniería d
 |---------|---------|--------|
 | TP 1 | [tp1/](tp1/) | Resuelto |
 | TP 2 | [tp2/](tp2/) | en blanco |
-| Trabajo Práctico Final | [tp_final/](tp_final/) | en blanco |
+| Trabajo Práctico Final | [tp_final/](tp_final/) | Resuelto |
