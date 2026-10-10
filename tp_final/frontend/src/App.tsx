@@ -1,4 +1,5 @@
 import type { UserManager } from 'oidc-client-ts'
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router'
 import { AuthProvider } from './auth/AuthProvider'
 import { InsecureContext } from './components/InsecureContext'
@@ -10,6 +11,12 @@ import { CreatePage } from './pages/create/CreatePage'
 import { NotFound } from './pages/NotFound'
 import { OpenPage } from './pages/open/OpenPage'
 import { isSecureCryptoAvailable } from './secureContext'
+
+// Dev server and `npm run csp-check` builds only; the production build drops the import entirely.
+const StatesGallery =
+  import.meta.env.DEV || import.meta.env.MODE === 'csp-check'
+    ? lazy(() => import('./dev/StatesGallery').then((m) => ({ default: m.StatesGallery })))
+    : null
 
 /**
  * Pasting another link into an open /s tab changes only the fragment, so the page is not reloaded
@@ -37,6 +44,16 @@ export function App({ userManager }: { userManager: UserManager }) {
                 </RequireLogin>
               }
             />
+            {StatesGallery && (
+              <Route
+                path="_estados"
+                element={
+                  <Suspense>
+                    <StatesGallery />
+                  </Suspense>
+                }
+              />
+            )}
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>

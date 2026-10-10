@@ -1,4 +1,10 @@
-import { useState } from 'react'
+import { CircleAlert, Eye, LoaderCircle, RotateCw, TriangleAlert, UserRound } from 'lucide-react'
+import { type ReactNode, useState } from 'react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Textarea } from '@/components/ui/textarea'
 import { ApiError, type ConsumeResponse, consumeShare } from '../../api'
 import { useAuth } from '../../auth/context'
 import { CopyButton } from '../../components/CopyButton'
@@ -30,12 +36,12 @@ export function OpenPage() {
 
   if (link === null) {
     return (
-      <section>
-        <h1>Enlace no válido</h1>
-        <p role="alert" className="error">
+      <section className="flex flex-col gap-6">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">Enlace no válido</h1>
+        <ErrorAlert>
           El enlace está incompleto o no es válido. Verificá que lo hayas copiado completo o pedile al remitente que lo
           envíe nuevamente.
-        </p>
+        </ErrorAlert>
       </section>
     )
   }
@@ -79,34 +85,40 @@ export function OpenPage() {
   const loginPrompt = <LoginPrompt message="Iniciá sesión con tu usuario para acceder al secreto." />
 
   return (
-    <section>
-      <h1>Secreto compartido</h1>
+    <section className="flex flex-col gap-6">
+      <h1 className="font-heading text-2xl font-semibold tracking-tight">Secreto compartido</h1>
 
       {phase.kind === 'revealed' && (
-        <>
-          <label htmlFor="revealed">Secreto revelado</label>
-          <textarea id="revealed" readOnly rows={6} value={phase.plaintext} />
-          <CopyButton value={phase.plaintext} />
-          <p className="hint">Guardalo en un lugar seguro: no vas a poder volver a verlo con este enlace.</p>
-        </>
+        <Card>
+          <CardContent>
+            <Field>
+              <FieldLabel htmlFor="revealed">Secreto revelado</FieldLabel>
+              <Textarea id="revealed" readOnly rows={6} className="min-h-36 font-mono" value={phase.plaintext} />
+            </Field>
+          </CardContent>
+          <CardFooter className="flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <TriangleAlert className="size-4 shrink-0 text-amber-600" />
+              Guardalo en un lugar seguro: no vas a poder volver a verlo con este enlace.
+            </p>
+            <CopyButton value={phase.plaintext} />
+          </CardFooter>
+        </Card>
       )}
 
-      {phase.kind === 'decrypt_failed' && (
-        <p role="alert" className="error">
-          {DECRYPT_FAILED_MESSAGE}
-        </p>
-      )}
+      {phase.kind === 'decrypt_failed' && <ErrorAlert>{DECRYPT_FAILED_MESSAGE}</ErrorAlert>}
 
       {phase.kind === 'failed' && (
         <>
-          <p role="alert" className="error">
-            {phase.message}
-          </p>
+          <ErrorAlert>{phase.message}</ErrorAlert>
           {phase.canRetry &&
             (loggedIn ? (
-              <button type="button" onClick={() => void reveal(link)}>
-                Intentar nuevamente
-              </button>
+              <div>
+                <Button type="button" variant="outline" onClick={() => void reveal(link)}>
+                  <RotateCw />
+                  Intentar nuevamente
+                </Button>
+              </div>
             ) : (
               loginPrompt
             ))}
@@ -115,21 +127,47 @@ export function OpenPage() {
 
       {(phase.kind === 'idle' || phase.kind === 'consuming') &&
         (loggedIn ? (
-          <div className="notice">
-            <p>
-              Ingresaste como <strong>{user?.profile.preferred_username}</strong>.
-            </p>
-            <p>
-              Este secreto se puede obtener <strong>una sola vez</strong>. Al revelarlo, este enlace deja de funcionar
-              para tu usuario.
-            </p>
-            <button type="button" onClick={() => void reveal(link)} disabled={phase.kind === 'consuming'}>
-              {phase.kind === 'consuming' ? 'Obteniendo…' : 'Revelar secreto'}
-            </button>
-          </div>
+          <Card>
+            <CardContent className="flex flex-col gap-3">
+              <p className="flex items-center gap-2 text-muted-foreground">
+                <UserRound className="size-4 shrink-0" />
+                <span>
+                  Ingresaste como <strong className="font-medium text-foreground">{user?.profile.preferred_username}</strong>.
+                </span>
+              </p>
+              <p className="flex gap-2">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                <span>
+                  Este secreto se puede obtener <strong className="font-semibold">una sola vez</strong>. Al revelarlo, este
+                  enlace deja de funcionar para tu usuario.
+                </span>
+              </p>
+            </CardContent>
+            <CardFooter className="justify-end">
+              <Button
+                type="button"
+                size="lg"
+                className="w-full sm:w-auto"
+                onClick={() => void reveal(link)}
+                disabled={phase.kind === 'consuming'}
+              >
+                {phase.kind === 'consuming' ? <LoaderCircle className="animate-spin" /> : <Eye />}
+                {phase.kind === 'consuming' ? 'Obteniendo…' : 'Revelar secreto'}
+              </Button>
+            </CardFooter>
+          </Card>
         ) : (
           loginPrompt
         ))}
     </section>
+  )
+}
+
+function ErrorAlert({ children }: { children: ReactNode }) {
+  return (
+    <Alert variant="destructive">
+      <CircleAlert />
+      <AlertDescription>{children}</AlertDescription>
+    </Alert>
   )
 }

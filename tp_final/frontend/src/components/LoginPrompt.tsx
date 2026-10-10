@@ -1,4 +1,6 @@
+import { LogIn } from 'lucide-react'
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { useAuth } from '../auth/context'
 
 export function LoginPrompt({ message, onLoggedIn }: { message: string; onLoggedIn?: () => void }) {
@@ -18,13 +20,16 @@ export function LoginPrompt({ message, onLoggedIn }: { message: string; onLogged
   }
 
   return (
-    <div className="notice">
-      <p>{message}</p>
-      <button type="button" onClick={handleClick} disabled={busy}>
-        Iniciar sesión
-      </button>
+    <div className="rounded-xl border bg-card p-4 text-sm text-card-foreground">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p>{message}</p>
+        <Button type="button" onClick={handleClick} disabled={busy} className="self-start sm:self-auto">
+          <LogIn />
+          Iniciar sesión
+        </Button>
+      </div>
       {failed && (
-        <p role="alert" className="error">
+        <p role="alert" className="mt-3 text-destructive">
           No se pudo iniciar sesión. Si el navegador bloqueó la ventana emergente, permitila e intentá nuevamente.
         </p>
       )}

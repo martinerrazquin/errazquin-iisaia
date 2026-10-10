@@ -4,6 +4,8 @@ import { AuthContext, type AuthContextValue } from '../auth/context'
 
 interface TestAuthProviderProps {
   initialToken?: string | null
+  /** Treat initialToken as expired (user kept, getAccessToken() → null), like the real provider; login() fixes it. */
+  tokenExpired?: boolean
   username?: string
   loginSucceeds?: boolean
   onExpire?: () => void
@@ -13,6 +15,7 @@ interface TestAuthProviderProps {
 /** Auth double for component tests: login() "succeeds" by setting the token 'fresh-token'. */
 export function TestAuthProvider({
   initialToken = null,
+  tokenExpired = false,
   username = 'bgonzalez',
   loginSucceeds = true,
   onExpire,
@@ -21,7 +24,7 @@ export function TestAuthProvider({
   const [token, setToken] = useState<string | null>(initialToken)
   const value: AuthContextValue = {
     user: token ? ({ access_token: token, profile: { preferred_username: username } } as unknown as User) : null,
-    getAccessToken: () => token,
+    getAccessToken: () => (tokenExpired && token === initialToken ? null : token),
     login: async () => {
       if (loginSucceeds) setToken('fresh-token')
       return loginSucceeds

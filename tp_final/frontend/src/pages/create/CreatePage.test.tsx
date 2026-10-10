@@ -33,6 +33,11 @@ const RESPONSE = {
   ],
 }
 
+const SHARED_RESPONSE = {
+  ...RESPONSE,
+  grants: RESPONSE.grants.map(({ recipient }) => ({ recipient, access_token: 'S'.repeat(43) })),
+}
+
 function renderPage(initialToken: string | null = 'oidc-token', onExpire = vi.fn()) {
   render(
     <TestAuthProvider initialToken={initialToken} onExpire={onExpire}>
@@ -40,6 +45,17 @@ function renderPage(initialToken: string | null = 'oidc-token', onExpire = vi.fn
     </TestAuthProvider>,
   )
   return { onExpire }
+}
+
+/** Renders with a session that the test can make lapse later (the page has then already shown the form). */
+function renderExpiringPage({ loginSucceeds = true } = {}) {
+  const page = (tokenExpired: boolean) => (
+    <TestAuthProvider initialToken="oidc-token" tokenExpired={tokenExpired} loginSucceeds={loginSucceeds}>
+      <CreatePage />
+    </TestAuthProvider>
+  )
+  const { rerender } = render(page(false))
+  return { expire: () => rerender(page(true)) }
 }
 
 function fillForm(plaintext = 'hunter2', recipients = ' BGonzalez, csaul ') {
@@ -92,6 +108,35 @@ describe('CreatePage', () => {
     expect(createShare.mock.calls[0][1]).toMatchObject({ label: 'Staging DB', shared_token: true, expires_in_minutes: 90 })
   })
 
+  it('shows a shared link once, for all recipients', async () => {
+    createShare.mockResolvedValue(SHARED_RESPONSE)
+    renderPage()
+    fillForm()
+    await userEvent.click(screen.getByLabelText('Usar un único enlace para todos los destinatarios'))
+    await submit()
+    const list = await screen.findByTestId('share-links')
+    expect(list.querySelectorAll('li')).toHaveLength(1)
+    const row = list.querySelector('li[data-shared]')
+    expect(row).toHaveTextContent('Todos los destinatarios')
+    expect(row).toHaveTextContent('bgonzalez, csaul')
+    expect(row?.querySelector('code')?.textContent).toBe(`${window.location.origin}/s#v=1&t=${'S'.repeat(43)}&k=${CEK}`)
+  })
+
+  it('blurs each link until the eye button reveals it', async () => {
+    createShare.mockResolvedValue(RESPONSE)
+    renderPage()
+    fillForm()
+    await submit()
+    const list = await screen.findByTestId('share-links')
+    const code = list.querySelector('li[data-recipient="bgonzalez"] code')
+    const [eye] = screen.getAllByRole('button', { name: 'Mostrar enlace' })
+    expect(eye).toHaveAttribute('aria-pressed', 'false')
+    expect(code).toHaveClass('blur-xs')
+    await userEvent.click(eye)
+    expect(eye).toHaveAttribute('aria-pressed', 'true')
+    expect(code).not.toHaveClass('blur-xs')
+  })
+
   it('rejects email recipients without calling the API', async () => {
     renderPage()
     fillForm('hunter2', 'bgonzalez@corp.example')
@@ -110,18 +155,39 @@ describe('CreatePage', () => {
     expect(screen.getByRole('button', { name: 'Cifrar y crear enlaces' })).toBeEnabled()
   })
 
-  it('keeps the typed secret when the session is missing at submit and continues after login', async () => {
-    createShare.mockResolvedValue(RESPONSE)
+  it('shows only a login prompt when entering without a session', async () => {
     renderPage(null)
+    expect(screen.queryByLabelText('Secreto')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
+    expect(await screen.findByLabelText('Secreto')).toBeInTheDocument()
+  })
+
+  it('keeps the typed secret when the session lapses: the button logs in, then the user submits again', async () => {
+    createShare.mockResolvedValue(RESPONSE)
+    const { expire } = renderExpiringPage()
     fillForm()
-    await submit()
-    expect(createShare).not.toHaveBeenCalled()
+    expire()
     expect(screen.getByText(/Tu sesión expiró/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cifrar y crear enlaces' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Iniciar sesión para continuar' }))
+    expect(createShare).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Secreto')).toHaveValue('hunter2')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
     await submit()
     expect(createShare).toHaveBeenCalledWith('fresh-token', expect.objectContaining({ recipients: ['bgonzalez', 'csaul'] }))
+  })
+
+  it('explains a closed login popup and lets the user try again', async () => {
+    const { expire } = renderExpiringPage({ loginSucceeds: false })
+    fillForm()
+    expire()
+    const loginButton = screen.getByRole('button', { name: 'Iniciar sesión para continuar' })
+    await userEvent.click(loginButton)
+    expect(await screen.findByRole('alert')).toHaveTextContent('bloqueó la ventana emergente')
+    expect(loginButton).toBeEnabled()
+    expect(screen.getByLabelText('Secreto')).toHaveValue('hunter2')
+    expect(createShare).not.toHaveBeenCalled()
   })
 
   it('handles a 401 by asking to log in again without losing the form', async () => {
@@ -131,6 +197,7 @@ describe('CreatePage', () => {
     await submit()
     expect(onExpire).toHaveBeenCalled()
     expect(await screen.findByText(/Tu sesión expiró/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Iniciar sesión para continuar' })).toBeEnabled()
     expect(screen.getByLabelText('Secreto')).toHaveValue('hunter2')
   })
 

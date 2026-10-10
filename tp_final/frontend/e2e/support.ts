@@ -87,6 +87,13 @@ export async function createShare(page: Page, options: CreateOptions): Promise<R
   const list = page.getByTestId('share-links')
   await expect(list).toBeVisible()
   const links: Record<string, string> = {}
+  if (options.shared) {
+    // Shared mode shows the one link once, for all recipients.
+    await expect(list.locator('li')).toHaveCount(1)
+    const link = ((await list.locator('li[data-shared] code').textContent()) ?? '').trim()
+    for (const recipient of options.recipients) links[recipient] = link
+    return links
+  }
   for (const recipient of options.recipients) {
     links[recipient] = ((await list.locator(`li[data-recipient="${recipient}"] code`).textContent()) ?? '').trim()
   }
