@@ -1,18 +1,19 @@
-import { ChevronLeft, ChevronRight, CircleAlert } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CircleAlert, CornerDownRight, LoaderCircle, Minus, Plus } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { type AdminSharesPage, ApiError, listAdminShares } from '../../api'
+import { cn } from '@/lib/utils'
+import { type AdminShareItem, type AdminSharesPage, ApiError, listAdminShares } from '../../api'
 import { useAuth } from '../../auth/context'
 import { formatDateTime } from '../../i18n/format'
 import { errorMessage } from '../../i18n/messages'
-import { shareStatus } from './status'
+import { grantStatus, shareStatus } from './status'
 
 const PAGE_SIZE = 50
 
-type Loaded =
+export type Loaded =
   | { page: number; ok: true; data: AdminSharesPage; loadedAt: Date }
   | { page: number; ok: false; message: string }
 
@@ -47,10 +48,16 @@ export function AdminPage() {
     }
   }, [accessToken, page, expireSession])
 
+  return <AdminView loaded={loaded !== null && loaded.page === page ? loaded : null} onPageChange={setPage} />
+}
+
+/** What the page shows for a load result (null while loading); exported for the dev states page. */
+export function AdminView({ loaded, onPageChange }: { loaded: Loaded | null; onPageChange: (page: number) => void }) {
   let content: ReactNode
-  if (loaded === null || loaded.page !== page) {
+  if (loaded === null) {
     content = (
-      <p role="status" className="text-sm text-muted-foreground">
+      <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+        <LoaderCircle className="size-4 animate-spin" />
         Cargando…
       </p>
     )
@@ -62,7 +69,7 @@ export function AdminPage() {
       </Alert>
     )
   } else {
-    content = <SharesTable data={loaded.data} now={loaded.loadedAt} onPageChange={setPage} />
+    content = <SharesTable data={loaded.data} now={loaded.loadedAt} onPageChange={onPageChange} />
   }
 
   return (
@@ -78,7 +85,7 @@ export function AdminPage() {
   )
 }
 
-export function SharesTable({
+function SharesTable({
   data,
   now,
   onPageChange,
@@ -104,29 +111,9 @@ export function SharesTable({
                 <th>Destinatarios</th>
               </tr>
             </thead>
-            <tbody>
-              {data.items.map((item) => (
-                <tr key={item.id} className="border-t align-top [&>td]:px-3 [&>td]:py-2.5">
-                  <td className="whitespace-nowrap">{formatDateTime(item.created_at)}</td>
-                  <td>{item.creator_identity}</td>
-                  <td>{item.label ?? '—'}</td>
-                  <td className="whitespace-nowrap">{formatDateTime(item.expires_at)}</td>
-                  <td>
-                    <StatusBadge status={shareStatus(item, now)} />
-                  </td>
-                  <td>
-                    <ul className="flex flex-col gap-0.5">
-                      {item.grants.map((grant) => (
-                        <li key={grant.recipient_identity} className="whitespace-nowrap">
-                          {grant.recipient_identity}:{' '}
-                          {grant.consumed_at ? `obtenido ${formatDateTime(grant.consumed_at)}` : 'pendiente'}
-                        </li>
-                      ))}
-                    </ul>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+            {data.items.map((item) => (
+              <ShareRows key={item.id} item={item} now={now} />
+            ))}
           </table>
         </div>
       </Card>
@@ -159,6 +146,91 @@ export function SharesTable({
   )
 }
 
+const STATUS_STYLES: Record<string, { variant: 'secondary' | 'outline' | 'destructive'; className?: string }> = {
+  Activo: { variant: 'secondary', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
+  'Obtenido por todos': { variant: 'secondary' },
+  Vencido: { variant: 'outline', className: 'text-muted-foreground' },
+  Revocado: { variant: 'destructive' },
+  'Contenido eliminado': { variant: 'destructive' },
+  // Per recipient.
+  Obtenido: { variant: 'secondary', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
+  Pendiente: { variant: 'secondary' },
+  'No obtenido': { variant: 'destructive' },
+}
+
+/**
+ * One share (its own tbody) plus a second tbody with its recipients, which the +/− button shows. Recipient rows reuse
+ * the share columns: name under Creado–Etiqueta, date under Vence, status badge under Estado.
+ */
+function ShareRows({ item, now }: { item: AdminShareItem; now: Date }) {
+  const [open, setOpen] = useState(false)
+  const detailsId = `grants-${item.id}`
+  const obtained = item.grants.filter((grant) => grant.consumed_at !== null).length
+  return (
+    <>
+      <tbody className="border-t">
+        <tr className="align-top [&>td]:px-3 [&>td]:py-2.5">
+          <td className="whitespace-nowrap">{formatDateTime(item.created_at)}</td>
+          <td>{item.creator_identity}</td>
+          <td className={item.label === null ? 'text-muted-foreground' : undefined}>{item.label ?? '—'}</td>
+          <td className="whitespace-nowrap">{formatDateTime(item.expires_at)}</td>
+          <td>
+            <StatusBadge status={shareStatus(item, now)} />
+          </td>
+          <td>
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-xs"
+                aria-label="Mostrar destinatarios"
+                aria-expanded={open}
+                aria-controls={detailsId}
+                onClick={() => setOpen((value) => !value)}
+              >
+                {open ? <Minus /> : <Plus />}
+              </Button>
+              <span className="text-muted-foreground">
+                Obtenidos: {obtained} de {item.grants.length}
+              </span>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+      <tbody id={detailsId} hidden={!open} className="bg-muted/40">
+        <tr className="border-t border-border/60 text-xs text-muted-foreground [&>td]:px-3 [&>td]:py-1.5 [&>td]:font-medium">
+          <td colSpan={3} className="pl-10">
+            Destinatario
+          </td>
+          <td>Obtenido el</td>
+          <td colSpan={2}>Estado</td>
+        </tr>
+        {item.grants.map((grant) => (
+          <tr key={grant.recipient_identity} className="border-t border-border/60 [&>td]:px-3 [&>td]:py-2">
+            <td colSpan={3}>
+              <span className="flex items-center gap-2 pl-7">
+                <CornerDownRight className="size-3.5 shrink-0 text-muted-foreground" />
+                <span>{grant.recipient_identity}</span>
+              </span>
+            </td>
+            <td className={cn('whitespace-nowrap', grant.consumed_at === null && 'text-muted-foreground')}>
+              {grant.consumed_at ? formatDateTime(grant.consumed_at) : '—'}
+            </td>
+            <td colSpan={2}>
+              <StatusBadge status={grantStatus(item, grant, now)} />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </>
+  )
+}
+
 function StatusBadge({ status }: { status: string }) {
-  return <Badge variant={status === 'Activo' ? 'default' : 'secondary'}>{status}</Badge>
+  const style = STATUS_STYLES[status] ?? { variant: 'secondary' }
+  return (
+    <Badge variant={style.variant} className={style.className}>
+      {status}
+    </Badge>
+  )
 }

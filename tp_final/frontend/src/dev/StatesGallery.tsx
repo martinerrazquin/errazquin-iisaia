@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import type { AdminSharesPage } from '../api'
 import { errorMessages } from '../i18n/messages'
-import { SharesTable } from '../pages/admin/AdminPage'
+import { AdminView } from '../pages/admin/AdminPage'
 import { CreatedLinksView, CreatePage, type CreatedLinks } from '../pages/create/CreatePage'
 import { NotFound } from '../pages/NotFound'
 import { OpenPage, type Phase, UNCERTAIN_MESSAGE } from '../pages/open/OpenPage'
@@ -65,6 +65,16 @@ const adminPage: AdminSharesPage = {
       revoked_at: null,
       payload_deleted_at: null,
       grants: [{ recipient_identity: 'dlopez', consumed_at: hoursAgo(49) }],
+    },
+    {
+      id: '4',
+      creator_identity: 'aperez',
+      label: 'Certificado VPN',
+      created_at: hoursAgo(72),
+      expires_at: inOneHour,
+      revoked_at: hoursAgo(70),
+      payload_deleted_at: null,
+      grants: [{ recipient_identity: 'flapinto', consumed_at: null }],
     },
   ],
 }
@@ -156,9 +166,27 @@ export function StatesGallery() {
           }}
         />
       </State>
-      <State title="Administración · tabla">
-        <SharesTable data={adminPage} now={loadedAt} onPageChange={() => {}} />
-      </State>
+      {/* Admin uses a wider page (see Layout); these states break out of the gallery's narrow column to match. */}
+      <div className="relative left-1/2 flex w-[min(72rem,100vw)] -translate-x-1/2 flex-col gap-16 px-4">
+        <State title="Administración · tabla">
+          <AdminView loaded={{ page: 1, ok: true, data: adminPage, loadedAt }} onPageChange={() => {}} />
+        </State>
+        <State title="Administración · cargando">
+          <AdminView loaded={null} onPageChange={() => {}} />
+        </State>
+        <State title="Administración · sin datos">
+          <AdminView
+            loaded={{ page: 1, ok: true, data: { items: [], page: 1, page_size: 50, total: 0 }, loadedAt }}
+            onPageChange={() => {}}
+          />
+        </State>
+        <State title="Administración · sin permisos">
+          <AdminView
+            loaded={{ page: 1, ok: false, message: errorMessages.admin_access_required }}
+            onPageChange={() => {}}
+          />
+        </State>
+      </div>
       <State title="Página no encontrada">
         <NotFound />
       </State>

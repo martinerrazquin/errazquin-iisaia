@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../../api'
 import { ApiError } from '../../api'
 import { AuthContext } from '../../auth/context'
+import { formatDateTime } from '../../i18n/format'
 import { TestAuthProvider } from '../../test/auth'
 import { AdminPage } from './AdminPage'
 
@@ -49,10 +50,36 @@ describe('AdminPage', () => {
     renderPage()
     expect(await screen.findByText('Staging DB')).toBeInTheDocument()
     expect(screen.getByText('aperez')).toBeInTheDocument()
-    expect(screen.getByText(/bgonzalez: obtenido/)).toBeInTheDocument()
-    expect(screen.getByText(/csaul: pendiente/)).toBeInTheDocument()
     expect(screen.getByText('Activo')).toBeInTheDocument()
+    expect(screen.getByText('Obtenidos: 1 de 2')).toBeInTheDocument()
     expect(listAdminShares).toHaveBeenCalledWith('admin-token', 1, 50)
+
+    // Recipients sit in a collapsed row that the +/− button opens.
+    const toggle = screen.getByRole('button', { name: 'Mostrar destinatarios' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('cell', { name: 'csaul' })).not.toBeInTheDocument()
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const bgonzalez = screen.getByRole('cell', { name: 'bgonzalez' }).closest('tr')!
+    expect(bgonzalez).toHaveTextContent('Obtenido')
+    expect(bgonzalez).toHaveTextContent(formatDateTime(ITEM.grants[0].consumed_at!))
+    const csaul = screen.getByRole('cell', { name: 'csaul' }).closest('tr')!
+    expect(csaul).toHaveTextContent('Pendiente')
+    expect(csaul).toHaveTextContent('—')
+    await userEvent.click(toggle)
+    expect(screen.queryByRole('cell', { name: 'csaul' })).not.toBeInTheDocument()
+  })
+
+  it('marks unused grants of a closed share as not obtained', async () => {
+    listAdminShares.mockResolvedValue({
+      items: [{ ...ITEM, expires_at: '2026-10-08T21:00:00Z' }],
+      page: 1,
+      page_size: 50,
+      total: 1,
+    })
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Mostrar destinatarios' }))
+    expect(screen.getByRole('cell', { name: 'csaul' }).closest('tr')).toHaveTextContent('No obtenido')
   })
 
   it('paginates', async () => {
