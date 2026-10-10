@@ -3,6 +3,8 @@ import type { AdminSharesPage } from '../api'
 import { errorMessages } from '../i18n/messages'
 import { AdminView } from '../pages/admin/AdminPage'
 import { CreatedLinksView, CreatePage, type CreatedLinks } from '../pages/create/CreatePage'
+import { InsecureContext } from '../components/InsecureContext'
+import { AuthCallback } from '../pages/AuthCallback'
 import { NotFound } from '../pages/NotFound'
 import { OpenPage, type Phase, UNCERTAIN_MESSAGE } from '../pages/open/OpenPage'
 import { TestAuthProvider } from '../test/auth'
@@ -104,6 +106,14 @@ function Open({ phase, loggedIn = true, fragment = validFragment }: { phase?: Ph
   )
 }
 
+const pendingCallback = { signinPopupCallback: () => new Promise<undefined>(() => {}) }
+const failedCallback = { signinPopupCallback: () => Promise.reject(new Error('fake')) }
+
+/** These pages fill a whole window (the login popup, an unsupported browser); show them in a window-sized frame. */
+function Frame({ children }: { children: ReactNode }) {
+  return <div className="overflow-hidden rounded-xl border bg-background [&_main]:min-h-[22rem]">{children}</div>
+}
+
 function State({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-4">
@@ -198,6 +208,21 @@ export function StatesGallery() {
       </div>
       <State title="Página no encontrada">
         <NotFound />
+      </State>
+      <State title="Ventana de inicio de sesión · completando">
+        <Frame>
+          <AuthCallback userManager={pendingCallback} />
+        </Frame>
+      </State>
+      <State title="Ventana de inicio de sesión · error">
+        <Frame>
+          <AuthCallback userManager={failedCallback} />
+        </Frame>
+      </State>
+      <State title="Navegador sin contexto seguro">
+        <Frame>
+          <InsecureContext />
+        </Frame>
       </State>
     </div>
   )
