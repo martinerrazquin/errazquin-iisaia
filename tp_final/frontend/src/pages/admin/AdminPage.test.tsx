@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { User } from 'oidc-client-ts'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -91,6 +91,26 @@ describe('AdminPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
     expect(listAdminShares).toHaveBeenLastCalledWith('admin-token', 2, 50)
     expect(await screen.findByText(/Página 2 de 3/)).toBeInTheDocument()
+  })
+
+  it('refreshes the current page in place', async () => {
+    listAdminShares.mockResolvedValue({ items: [ITEM], page: 1, page_size: 50, total: 1 })
+    renderPage()
+    await screen.findByText('Staging DB')
+
+    let resolve!: (value: Awaited<ReturnType<typeof api.listAdminShares>>) => void
+    listAdminShares.mockReturnValue(new Promise((r) => (resolve = r)))
+    const refresh = screen.getByRole('button', { name: 'Actualizar' })
+    await userEvent.click(refresh)
+    // The current table stays while the same page reloads.
+    expect(refresh).toBeDisabled()
+    expect(screen.getByText('Staging DB')).toBeInTheDocument()
+    expect(listAdminShares).toHaveBeenLastCalledWith('admin-token', 1, 50)
+
+    await act(async () => resolve({ items: [{ ...ITEM, label: 'Prod DB' }], page: 1, page_size: 50, total: 1 }))
+    expect(screen.getByText('Prod DB')).toBeInTheDocument()
+    expect(refresh).toBeEnabled()
+    expect(listAdminShares).toHaveBeenCalledTimes(2)
   })
 
   it('shows an empty state', async () => {

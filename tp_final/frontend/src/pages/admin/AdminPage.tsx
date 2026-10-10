@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, CircleAlert, CornerDownRight, LoaderCircle, Minus, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CircleAlert, CornerDownRight, LoaderCircle, Minus, Plus, RefreshCw } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -20,7 +20,9 @@ export type Loaded =
 export function AdminPage() {
   const { getAccessToken, expireSession } = useAuth()
   const [page, setPage] = useState(1)
-  const [loaded, setLoaded] = useState<Loaded | null>(null)
+  // Bumped by "Actualizar" to fetch the same page again.
+  const [request, setRequest] = useState(0)
+  const [loaded, setLoaded] = useState<(Loaded & { request: number }) | null>(null)
   const accessToken = getAccessToken()
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export function AdminPage() {
     let cancelled = false
     listAdminShares(accessToken, page, PAGE_SIZE).then(
       (data) => {
-        if (!cancelled) setLoaded({ page, ok: true, data, loadedAt: new Date() })
+        if (!cancelled) setLoaded({ page, request, ok: true, data, loadedAt: new Date() })
       },
       (err: unknown) => {
         if (cancelled) return
@@ -40,19 +42,43 @@ export function AdminPage() {
           expireSession()
           return
         }
-        setLoaded({ page, ok: false, message: errorMessage(err instanceof ApiError ? err.code : 'internal_error') })
+        setLoaded({
+          page,
+          request,
+          ok: false,
+          message: errorMessage(err instanceof ApiError ? err.code : 'internal_error'),
+        })
       },
     )
     return () => {
       cancelled = true
     }
-  }, [accessToken, page, expireSession])
+  }, [accessToken, page, request, expireSession])
 
-  return <AdminView loaded={loaded !== null && loaded.page === page ? loaded : null} onPageChange={setPage} />
+  // Another page shows the loading state; a refresh of the same page keeps showing the current result meanwhile.
+  const current = loaded !== null && loaded.page === page ? loaded : null
+  return (
+    <AdminView
+      loaded={current}
+      refreshing={current !== null && current.request !== request}
+      onRefresh={() => setRequest((value) => value + 1)}
+      onPageChange={setPage}
+    />
+  )
 }
 
 /** What the page shows for a load result (null while loading); exported for the dev states page. */
-export function AdminView({ loaded, onPageChange }: { loaded: Loaded | null; onPageChange: (page: number) => void }) {
+export function AdminView({
+  loaded,
+  refreshing = false,
+  onRefresh,
+  onPageChange,
+}: {
+  loaded: Loaded | null
+  refreshing?: boolean
+  onRefresh: () => void
+  onPageChange: (page: number) => void
+}) {
   let content: ReactNode
   if (loaded === null) {
     content = (
@@ -74,11 +100,17 @@ export function AdminView({ loaded, onPageChange }: { loaded: Loaded | null; onP
 
   return (
     <section className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1.5">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">Administración</h1>
-        <p className="text-sm text-muted-foreground">
-          Solo metadatos de auditoría: el contenido de los secretos nunca es visible.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">Administración</h1>
+          <p className="text-sm text-muted-foreground">
+            Solo metadatos de auditoría: el contenido de los secretos nunca es visible.
+          </p>
+        </div>
+        <Button type="button" variant="outline" onClick={onRefresh} disabled={loaded === null || refreshing}>
+          <RefreshCw className={cn(refreshing && 'animate-spin')} />
+          Actualizar
+        </Button>
       </div>
       {content}
     </section>

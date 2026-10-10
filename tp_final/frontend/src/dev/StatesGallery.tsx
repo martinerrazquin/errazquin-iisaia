@@ -169,21 +169,29 @@ export function StatesGallery() {
       {/* Admin uses a wider page (see Layout); these states break out of the gallery's narrow column to match. */}
       <div className="relative left-1/2 flex w-[min(72rem,100vw)] -translate-x-1/2 flex-col gap-16 px-4">
         <State title="Administración · tabla">
-          <AdminView loaded={{ page: 1, ok: true, data: adminPage, loadedAt }} onPageChange={() => {}} />
+          <AdminView loaded={{ page: 1, ok: true, data: adminPage, loadedAt }} onRefresh={() => {}} onPageChange={() => {}} />
+        </State>
+        <State title="Administración · actualizando">
+          <AdminView
+            loaded={{ page: 1, ok: true, data: adminPage, loadedAt }}
+            refreshing
+            onRefresh={() => {}}
+            onPageChange={() => {}}
+          />
         </State>
         <State title="Administración · cargando">
-          <AdminView loaded={null} onPageChange={() => {}} />
+          <AdminView loaded={null} onRefresh={() => {}} onPageChange={() => {}} />
         </State>
         <State title="Administración · sin datos">
           <AdminView
             loaded={{ page: 1, ok: true, data: { items: [], page: 1, page_size: 50, total: 0 }, loadedAt }}
-            onPageChange={() => {}}
+            onRefresh={() => {}} onPageChange={() => {}}
           />
         </State>
         <State title="Administración · sin permisos">
           <AdminView
             loaded={{ page: 1, ok: false, message: errorMessages.admin_access_required }}
-            onPageChange={() => {}}
+            onRefresh={() => {}} onPageChange={() => {}}
           />
         </State>
       </div>
