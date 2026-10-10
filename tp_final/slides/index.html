@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chismoso</title>
+  </head>
+  <body>
+    <!-- Shared SVG pieces: slides 2 and 3 reuse the same flow, slide 4 reuses the loop icon. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="oklch(0.205 0 0)" />
+        </marker>
+        <marker id="ah-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="oklch(0.556 0 0)" />
+        </marker>
+        <marker id="ah-danger" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="oklch(0.577 0.245 27.325)" />
+        </marker>
+        <marker id="ah-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="oklch(0.5 0.18 275)" />
+        </marker>
+
+        <!-- Flow base: actors, lifelines, Keycloak note -->
+        <g id="f-base">
+          <line class="d-lifeline" x1="170" y1="64" x2="170" y2="556" />
+          <line class="d-lifeline" x1="590" y1="64" x2="590" y2="556" />
+          <line class="d-lifeline" x1="1010" y1="64" x2="1010" y2="556" />
+          <g class="d-actor">
+            <rect x="40" y="0" width="260" height="64" rx="12" />
+            <text class="title" x="170" y="29" text-anchor="middle">Emisor</text>
+            <text class="sub" x="170" y="51" text-anchor="middle">browser · WebCrypto</text>
+          </g>
+          <g class="d-actor">
+            <rect x="460" y="0" width="260" height="64" rx="12" />
+            <text class="title" x="590" y="29" text-anchor="middle">Servidor</text>
+            <text class="sub" x="590" y="51" text-anchor="middle">FastAPI · Postgres</text>
+          </g>
+          <g class="d-actor">
+            <rect x="880" y="0" width="260" height="64" rx="12" />
+            <text class="title" x="1010" y="29" text-anchor="middle">Receptor</text>
+            <text class="sub" x="1010" y="51" text-anchor="middle">browser · WebCrypto</text>
+          </g>
+          <g class="d-keycloak">
+            <rect x="440" y="76" width="300" height="28" rx="14" />
+            <text x="590" y="95" text-anchor="middle">ambos se loguean con Keycloak (OIDC)</text>
+          </g>
+        </g>
+
+        <!-- 1: encrypt locally -->
+        <g id="f-step1">
+          <rect class="d-box" x="40" y="116" width="350" height="64" rx="12" />
+          <rect class="d-chip ok" x="54" y="132" width="88" height="32" rx="8" />
+          <text class="d-chip-text" x="98" y="153" text-anchor="middle">secreto</text>
+          <text class="d-small" x="154" y="154" text-anchor="middle">+</text>
+          <rect class="d-chip key" x="166" y="132" width="56" height="32" rx="8" />
+          <text class="d-chip-text" x="194" y="153" text-anchor="middle">key</text>
+          <text class="d-small" x="238" y="154" text-anchor="middle">→</text>
+          <rect class="d-chip cipher" x="254" y="132" width="122" height="32" rx="8" />
+          <text class="d-chip-text cipher" x="315" y="153" text-anchor="middle">ciphertext</text>
+          <g class="d-num"><circle cx="420" cy="139" r="13" /><text x="420" y="144" text-anchor="middle">1</text></g>
+          <text class="d-label" x="442" y="145">Cifrado local</text>
+          <text class="d-small" x="442" y="167">AES-256-GCM</text>
+        </g>
+
+        <!-- 2: upload ciphertext, get one token per recipient; DB keeps only ciphertext + hash -->
+        <g id="f-step2">
+          <g class="d-num"><circle cx="200" cy="197" r="13" /><text x="200" y="202" text-anchor="middle">2</text></g>
+          <text class="d-label" x="222" y="203">ciphertext + destinatarios</text>
+          <path class="d-arrow" d="M170 216 H586" marker-end="url(#ah)" />
+          <text class="d-small" x="560" y="253" text-anchor="end">← un token por destinatario</text>
+          <path class="d-arrow" d="M590 264 H174" marker-end="url(#ah)" />
+          <g transform="translate(615 180)">
+            <rect class="d-box" width="316" height="106" rx="12" />
+            <path class="d-db" d="M16 22 a18 7 0 0 1 36 0 v36 a18 7 0 0 1 -36 0 z M16 22 a18 7 0 0 0 36 0" />
+            <text class="d-small" x="66" y="28">La DB guarda</text>
+            <rect class="d-chip cipher" x="66" y="40" width="100" height="28" rx="7" />
+            <text class="d-chip-text cipher" x="116" y="59" text-anchor="middle">ciphertext</text>
+            <rect class="d-chip hash" x="174" y="40" width="128" height="28" rx="7" />
+            <text class="d-chip-text" x="238" y="59" text-anchor="middle">SHA-256(token)</text>
+            <text class="d-small" x="66" y="92">nunca la key ni el secreto</text>
+          </g>
+        </g>
+
+        <!-- 3: build the link and send it out of band -->
+        <g id="f-step3">
+          <rect class="d-chip plain" x="40" y="298" width="262" height="30" rx="8" />
+          <text class="d-chip-text" x="171" y="318" text-anchor="middle">/s#v=1&amp;t=token&amp;k=key</text>
+          <g class="d-num"><circle cx="324" cy="313" r="13" /><text x="324" y="318" text-anchor="middle">3</text></g>
+          <text class="d-label" x="346" y="319">arma el link</text>
+          <text class="d-label" x="990" y="338" text-anchor="end">lo manda por chat / mail</text>
+          <path class="d-arrow side" d="M170 348 H1006" marker-end="url(#ah-muted)" />
+          <text class="d-small" x="590" y="374" text-anchor="middle">el #fragment nunca llega al servidor</text>
+        </g>
+
+        <!-- 4: recipient reveals; server checks hash + identity and consumes once -->
+        <g id="f-step4">
+          <g class="d-num"><circle cx="634" cy="396" r="13" /><text x="634" y="401" text-anchor="middle">4</text></g>
+          <text class="d-label" x="656" y="402">login + «Revelar»: manda el token</text>
+          <path class="d-arrow" d="M1010 414 H594" marker-end="url(#ah)" />
+          <rect class="d-box" x="345" y="400" width="230" height="62" rx="10" />
+          <text class="d-small" x="460" y="425" text-anchor="middle">¿hash(token) + usuario?</text>
+          <text class="d-small" x="460" y="447" text-anchor="middle">→ marca el grant consumido</text>
+          <text class="d-label" x="620" y="452"><tspan class="d-chip-text cipher" style="font-size: 17px">ciphertext</tspan> (una sola vez)</text>
+          <path class="d-arrow" d="M590 462 H1006" marker-end="url(#ah)" />
+        </g>
+
+        <!-- 5: decrypt locally with the key from the fragment -->
+        <g id="f-step5">
+          <g class="d-num"><circle cx="622" cy="508" r="13" /><text x="622" y="513" text-anchor="middle">5</text></g>
+          <text class="d-label" x="644" y="514">Descifrado local</text>
+          <text class="d-small" x="644" y="536">key del #fragment</text>
+          <rect class="d-box" x="790" y="482" width="350" height="64" rx="12" />
+          <rect class="d-chip cipher" x="804" y="498" width="122" height="32" rx="8" />
+          <text class="d-chip-text cipher" x="865" y="519" text-anchor="middle">ciphertext</text>
+          <text class="d-small" x="940" y="520" text-anchor="middle">+</text>
+          <rect class="d-chip key" x="952" y="498" width="56" height="32" rx="8" />
+          <text class="d-chip-text" x="980" y="519" text-anchor="middle">key</text>
+          <text class="d-small" x="1024" y="520" text-anchor="middle">→</text>
+          <rect class="d-chip ok" x="1040" y="498" width="88" height="32" rx="8" />
+          <text class="d-chip-text" x="1084" y="519" text-anchor="middle">secreto</text>
+        </g>
+
+        <!-- Icon: person <-> computer loop (SPEC, UI restyling) -->
+        <symbol id="i-loop" viewBox="0 0 210 170">
+          <circle class="icon-soft" cx="46" cy="62" r="18" />
+          <path class="icon-soft" d="M12 128 C12 104 27 90 46 90 C65 90 80 104 80 128 Z" stroke-linejoin="round" />
+          <rect class="icon-soft" x="126" y="52" width="70" height="50" rx="7" />
+          <path class="icon-line" d="M161 102 V116 M144 118 H178" />
+          <circle class="icon-fill" cx="147" cy="77" r="4" />
+          <circle class="icon-fill" cx="161" cy="77" r="4" />
+          <circle class="icon-fill" cx="175" cy="77" r="4" />
+          <path class="icon-accent" d="M58 38 Q104 4 150 36" marker-end="url(#ah-accent)" />
+          <path class="icon-accent" d="M160 138 Q114 170 66 144" marker-end="url(#ah-accent)" />
+        </symbol>
+
+        <!-- Icon: one orchestrator fanning out to subagents -->
+        <symbol id="i-agents" viewBox="0 0 210 170">
+          <path class="icon-line" d="M105 54 L40 116 M105 54 V116 M105 54 L170 116" />
+          <rect class="icon-soft" x="76" y="10" width="58" height="44" rx="9" />
+          <circle class="icon-fill" cx="95" cy="32" r="4" />
+          <circle class="icon-fill" cx="115" cy="32" r="4" />
+          <circle class="icon-soft" cx="40" cy="134" r="21" />
+          <circle class="icon-soft" cx="105" cy="134" r="21" />
+          <circle class="icon-soft" cx="170" cy="134" r="21" />
+          <path class="icon-accent" d="M30 135 l7 7 l13 -14" />
+          <path class="icon-accent" d="M95 135 l7 7 l13 -14" />
+          <path class="icon-accent" d="M160 135 l7 7 l13 -14" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <div class="reveal">
+      <div class="slides">
+        <!-- 1. Qué es -->
+        <section>
+          <h2>Chismoso</h2>
+          <p class="lead">El login ya está centralizado… <strong>pero los secretos siguen viajando por chat.</strong></p>
+          <div class="chats">
+            <div class="chat bad">
+              <div class="chat-head"><span>Hoy</span><span class="verdict">✗</span></div>
+              <div class="msg">
+                <div class="avatar">A</div>
+                <div class="bubble">pasame la contraseña del server X</div>
+              </div>
+              <div class="msg me">
+                <div class="avatar">B</div>
+                <div class="bubble"><span class="secret">HolaComoEstas2026</span></div>
+              </div>
+              <div class="chat-foot">queda en el historial para siempre</div>
+            </div>
+
+            <div class="handoff fragment" data-fragment-index="1">
+              <div class="handoff-label">Chismoso</div>
+              <svg viewBox="0 0 200 28" aria-hidden="true">
+                <path d="M6 14 H182" stroke="oklch(0.205 0 0)" stroke-width="3.5" stroke-linecap="round" />
+                <path d="M178 4 L198 14 L178 24 Z" fill="oklch(0.205 0 0)" stroke="oklch(0.205 0 0)" stroke-width="2" stroke-linejoin="round" />
+              </svg>
+            </div>
+
+            <div class="chat good fragment" data-fragment-index="1">
+              <div class="chat-head"><span>Con un paso más</span><span class="verdict">✓</span></div>
+              <div class="msg">
+                <div class="avatar">A</div>
+                <div class="bubble">pasame la contraseña del server X</div>
+              </div>
+              <div class="msg me">
+                <div class="avatar">B</div>
+                <div class="bubble"><span class="link">chismoso/s#v=1&amp;t=k7Q…&amp;k=Zp2…</span></div>
+              </div>
+              <div class="chat-foot">se revela una sola vez, solo para A</div>
+            </div>
+          </div>
+          <aside class="notes">
+            <p>El login ya lo resolvimos con Keycloak, pero cuando alguien pide una contraseña, termina pegada en un chat y queda ahí para siempre.</p>
+            <p>Chismoso agrega un solo paso: en vez del secreto, mandás un link que se puede abrir una vez y solo por la persona correcta.</p>
+          </aside>
+        </section>
+
+        <!-- 2. Flujo exitoso -->
+        <section>
+          <h2>Cómo funciona</h2>
+          <div class="diagram">
+            <svg viewBox="0 0 1180 560" role="img" aria-label="Flujo de compartir un secreto con Chismoso">
+              <use href="#f-base" />
+              <use href="#f-step1" class="fragment" data-fragment-index="1" />
+              <use href="#f-step2" class="fragment" data-fragment-index="2" />
+              <use href="#f-step3" class="fragment" data-fragment-index="3" />
+              <use href="#f-step4" class="fragment" data-fragment-index="4" />
+              <use href="#f-step5" class="fragment" data-fragment-index="5" />
+            </svg>
+          </div>
+          <aside class="notes">
+            <ol>
+              <li>El browser del emisor genera una key nueva y cifra ahí mismo.</li>
+              <li>Al servidor solo le llega el ciphertext; devuelve un token por destinatario y guarda únicamente su hash.</li>
+              <li>El link lleva token y key en el #fragment, que el browser nunca envía al servidor.</li>
+              <li>El receptor se loguea, aprieta Revelar, y el servidor valida token + usuario y consume el grant atómicamente.</li>
+              <li>El browser del receptor descifra con la key del fragment.</li>
+            </ol>
+          </aside>
+        </section>
+
+        <!-- 3. Ataques -->
+        <section>
+          <h2>¿Y si…?</h2>
+          <div class="diagram">
+            <svg viewBox="0 0 1180 560" role="img" aria-label="Qué pasa si alguien más obtiene el link o roba la base de datos">
+              <g class="dimmed">
+                <use href="#f-base" />
+                <use href="#f-step1" />
+                <use href="#f-step2" />
+                <use href="#f-step3" />
+                <use href="#f-step4" />
+                <use href="#f-step5" />
+              </g>
+
+              <g class="fragment" data-fragment-index="1">
+                <circle cx="470" cy="348" r="9" fill="oklch(0.577 0.245 27.325)" />
+                <path class="d-attack" d="M466 358 C 440 392, 330 378, 300 404" stroke-dasharray="7 6" marker-end="url(#ah-danger)" />
+                <rect class="d-attack-box" x="24" y="404" width="300" height="146" rx="14" />
+                <text class="d-attack-title" x="44" y="436">Otro agarra el link</text>
+                <text class="d-attack-text" x="44" y="464">se loguea con su usuario…</text>
+                <text class="d-code" x="44" y="500">404</text>
+                <text class="d-attack-text" x="98" y="499">no es destinatario</text>
+                <text class="d-code" x="44" y="534">410</text>
+                <text class="d-attack-text" x="98" y="533">si ya se usó</text>
+              </g>
+
+              <g class="fragment" data-fragment-index="2">
+                <rect x="607" y="172" width="332" height="122" rx="16" fill="none" stroke="oklch(0.577 0.245 27.325)" stroke-width="3" />
+                <rect class="d-attack-box" x="954" y="110" width="216" height="226" rx="14" />
+                <text class="d-attack-title" x="972" y="142">Roban la DB</text>
+                <text class="d-attack-text" x="972" y="170">se llevan…</text>
+                <rect class="d-chip cipher" x="972" y="184" width="104" height="28" rx="7" />
+                <text class="d-chip-text cipher" x="1024" y="203" text-anchor="middle">ciphertext</text>
+                <rect class="d-chip hash" x="972" y="220" width="128" height="28" rx="7" />
+                <text class="d-chip-text" x="1036" y="239" text-anchor="middle">SHA-256(token)</text>
+                <text class="d-safe-text" x="972" y="284">sin key</text>
+                <text class="d-safe-text" x="972" y="308">→ no se descifra</text>
+              </g>
+            </svg>
+          </div>
+          <aside class="notes">
+            <p>Si el link le llega a otra persona: igual tiene que loguearse, y como no es destinatario recibe 404. Si ya se usó, 410.</p>
+            <p>Si se roban la base: hay ciphertext y hashes de tokens, pero la key nunca pasó por el servidor, así que no se puede descifrar.</p>
+          </aside>
+        </section>
+
+        <!-- 4. Cómo lo hice -->
+        <section>
+          <h2>Cómo lo construí</h2>
+          <div class="cards">
+            <div class="card fragment" data-fragment-index="1">
+              <div class="step">01</div>
+              <svg aria-hidden="true"><use href="#i-loop" /></svg>
+              <h3>SPEC</h3>
+              <p>Una charla LARGA con GPT</p>
+            </div>
+            <div class="card-sep fragment" data-fragment-index="2">›</div>
+            <div class="card fragment" data-fragment-index="2">
+              <div class="step">02</div>
+              <svg aria-hidden="true"><use href="#i-agents" /></svg>
+              <h3>Implementación</h3>
+              <p>CC + Superpowers</p>
+            </div>
+            <div class="card-sep fragment" data-fragment-index="3">›</div>
+            <div class="card fragment" data-fragment-index="3">
+              <div class="step">03</div>
+              <svg aria-hidden="true"><use href="#i-loop" /></svg>
+              <h3>UI Restyling</h3>
+              <p>Ping-pong con CC</p>
+            </div>
+          </div>
+          <aside class="notes">
+            <ol>
+              <li>Spec: muchas idas y vueltas con GPT hasta tener una spec cerrada.</li>
+              <li>Implementación: Claude Code con Superpowers, plan y subagentes.</li>
+              <li>UI: iteraciones cortas con Claude Code hasta que quedó bien.</li>
+            </ol>
+          </aside>
+        </section>
+
+        <!-- 5. Demo -->
+        <section class="center-slide">
+          <div class="big-word">Demo</div>
+          <aside class="notes">Cambiar a http://app.localhost:3000</aside>
+        </section>
+
+        <!-- 6. Cierre -->
+        <section class="center-slide">
+          <div class="thanks">¡Gracias!</div>
+          <div class="questions">¿Preguntas?</div>
+        </section>
+      </div>
+    </div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

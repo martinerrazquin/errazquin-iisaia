@@ -172,3 +172,15 @@ The base spec ([`chismoso_spec_v1_1_reconciled.md`](chismoso_spec_v1_1_reconcile
 ## Post-MVP
 
 The backlog and explicit exclusions are in base spec section 24: encrypted-payload cleanup worker, a creator's own share list, admin audit UX, creator revocation, service-account access, rate limiting and more. None of it is implemented. A UI/UX polish pass is planned as a separate cycle (new brainstorm, spec and plan) now that the MVP is complete and tested.
+
+## Presentation
+
+`slides/` holds a short reveal.js deck (in Spanish) for presenting the project. It is self-contained and shares no code or config with the app:
+
+```bash
+cd slides
+npm install
+npm run dev        # http://127.0.0.1:4300 (fixed port, so it can run next to the app stack)
+```
+
+Arrow keys advance, `S` opens the speaker view with notes and `F` goes fullscreen. See [`slides/README.md`](slides/README.md).
