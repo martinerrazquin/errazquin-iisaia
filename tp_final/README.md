@@ -37,7 +37,7 @@ docs/superpowers/   design spec with the MVP gap decisions
 chismoso_spec_v1_1_reconciled.md   base spec (normative)
 ```
 
-Stack: Python 3.14, FastAPI, SQLAlchemy 2, PyJWT, Alembic, PostgreSQL 18; React 19, Vite 8, TypeScript ~6.0, react-router 8, oidc-client-ts 3.5, oxlint, Vitest 5, Playwright.
+Stack: Python 3.14, FastAPI, SQLAlchemy 2, PyJWT, Alembic, PostgreSQL 18; React 19, Vite 8, TypeScript ~6.0, react-router 8, oidc-client-ts 3.5, Tailwind CSS 4, shadcn/ui (Radix), oxlint, Vitest 5, Playwright.
 
 ## Prerequisites
 
@@ -88,7 +88,10 @@ npm ci            # first time on the host
 npm test
 npm run build
 npm run lint
+npm run csp-check   # production build under the exact prod CSP; fails on any violation
 ```
+
+`csp-check` builds the app, serves it with the CSP from `infra/caddy/Caddyfile.prod` and loads every route in headless Chromium (needs `npx playwright install chromium` once). The dev stack cannot catch these violations: Vite injects CSS as `<style>` tags, so the dev proxy allows inline styles. Run it after adding a UI dependency or touching styles. Besides the real routes it loads `/_estados`, a dev-only page that renders every page state with fake data (logged-in forms, created links, revealed secret, admin table); it also works as a review page at `http://app.localhost:3000/_estados`. The production build leaves it out.
 
 Browser e2e against the running dev stack and the real Keycloak (12 tests: create/consume flows in individual and shared modes, wrong user, tampered key, no auto-consume, malformed link, admin, size limit, HMR WebSocket through the proxy, full-flow CSP check, copy-link, closing the login popup):
 
