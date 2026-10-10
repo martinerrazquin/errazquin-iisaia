@@ -2,8 +2,6 @@ import {
   CircleAlert,
   CircleCheck,
   Clock,
-  Eye,
-  EyeOff,
   Link2,
   LoaderCircle,
   Lock,
@@ -28,6 +26,7 @@ import { ApiError, createShare } from '../../api'
 import { useAuth } from '../../auth/context'
 import { CopyButton } from '../../components/CopyButton'
 import { LoginPrompt } from '../../components/LoginPrompt'
+import { BLURRED, RevealToggle } from '../../components/RevealToggle'
 import { config } from '../../config'
 import { CRYPTO_VERSION, encryptV1 } from '../../crypto/v1'
 import { formatDateTime } from '../../i18n/format'
@@ -361,23 +360,14 @@ function LinkRow({ icon, title, detail, link }: { icon: ReactNode; title: string
           {detail && <span className="text-sm text-muted-foreground">{detail}</span>}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Mostrar enlace"
-            aria-pressed={revealed}
-            onClick={() => setRevealed((value) => !value)}
-          >
-            {revealed ? <EyeOff /> : <Eye />}
-          </Button>
+          <RevealToggle label="Mostrar enlace" revealed={revealed} onToggle={() => setRevealed((value) => !value)} />
           <CopyButton value={link} label="Copiar enlace" />
         </div>
       </div>
       <code
         className={cn(
           'block rounded-md bg-muted px-3 py-2 font-mono text-xs break-all text-muted-foreground transition-[filter]',
-          !revealed && 'blur-xs select-none',
+          !revealed && BLURRED,
         )}
       >
         {link}

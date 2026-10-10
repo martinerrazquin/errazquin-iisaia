@@ -69,6 +69,21 @@ describe('OpenPage', () => {
     expect(consumeShare).not.toHaveBeenCalled()
   })
 
+  it('blurs the revealed secret until the eye button shows it', async () => {
+    consumeShare.mockResolvedValue(PAYLOAD)
+    decryptV1.mockResolvedValue('the secret')
+    openAt(VALID)
+    await reveal()
+    const secret = await screen.findByLabelText('Secreto revelado')
+    const eye = screen.getByRole('button', { name: 'Mostrar secreto' })
+    expect(secret).toHaveValue('the secret')
+    expect(secret).toHaveClass('text-transparent')
+    expect(eye).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(eye)
+    expect(eye).toHaveAttribute('aria-pressed', 'true')
+    expect(secret).not.toHaveClass('text-transparent')
+  })
+
   it('consumes once on explicit click and decrypts locally', async () => {
     consumeShare.mockResolvedValue(PAYLOAD)
     decryptV1.mockResolvedValue('the secret')

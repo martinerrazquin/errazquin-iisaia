@@ -1,8 +1,10 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import type { AdminSharesPage } from '../api'
+import { errorMessages } from '../i18n/messages'
 import { SharesTable } from '../pages/admin/AdminPage'
 import { CreatedLinksView, CreatePage, type CreatedLinks } from '../pages/create/CreatePage'
 import { NotFound } from '../pages/NotFound'
+import { OpenPage, type Phase, UNCERTAIN_MESSAGE } from '../pages/open/OpenPage'
 import { TestAuthProvider } from '../test/auth'
 
 /**
@@ -81,6 +83,16 @@ function LapsingSession({ children }: { children: ReactNode }) {
   )
 }
 
+const validFragment = `#v=1&t=${'A'.repeat(43)}&k=${'A'.repeat(43)}`
+
+function Open({ phase, loggedIn = true, fragment = validFragment }: { phase?: Phase; loggedIn?: boolean; fragment?: string }) {
+  return (
+    <TestAuthProvider initialToken={loggedIn ? 'fake-token' : null}>
+      <OpenPage fragment={fragment} initialPhase={phase} />
+    </TestAuthProvider>
+  )
+}
+
 function State({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-4">
@@ -113,6 +125,36 @@ export function StatesGallery() {
       </State>
       <State title="Crear · enlace único">
         <CreatedLinksView created={shared} onReset={() => {}} />
+      </State>
+      <State title="Abrir · enlace no válido">
+        <Open fragment="#v=1&t=abc" />
+      </State>
+      <State title="Abrir · sin sesión">
+        <Open loggedIn={false} />
+      </State>
+      <State title="Abrir · listo para revelar">
+        <Open />
+      </State>
+      <State title="Abrir · obteniendo">
+        <Open phase={{ kind: 'consuming' }} />
+      </State>
+      <State title="Abrir · revelado">
+        <Open phase={{ kind: 'revealed', plaintext: 'postgres://app:S3cr3t-ñandú@db.internal:5432/staging' }} />
+      </State>
+      <State title="Abrir · no se pudo descifrar">
+        <Open phase={{ kind: 'decrypt_failed' }} />
+      </State>
+      <State title="Abrir · error definitivo (p. ej. ya obtenido)">
+        <Open phase={{ kind: 'failed', message: errorMessages.share_already_consumed, canRetry: false }} />
+      </State>
+      <State title="Abrir · respuesta incierta, se puede reintentar">
+        <Open
+          phase={{
+            kind: 'failed',
+            message: UNCERTAIN_MESSAGE,
+            canRetry: true,
+          }}
+        />
       </State>
       <State title="Administración · tabla">
         <SharesTable data={adminPage} now={loadedAt} onPageChange={() => {}} />

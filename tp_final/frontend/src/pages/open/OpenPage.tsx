@@ -5,15 +5,17 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 import { ApiError, type ConsumeResponse, consumeShare } from '../../api'
 import { useAuth } from '../../auth/context'
 import { CopyButton } from '../../components/CopyButton'
+import { BLURRED, RevealToggle } from '../../components/RevealToggle'
 import { LoginPrompt } from '../../components/LoginPrompt'
 import { decryptV1 } from '../../crypto/v1'
 import { errorMessage } from '../../i18n/messages'
 import { parseShareFragment, type ShareLink } from '../../link'
 
-type Phase =
+export type Phase =
   | { kind: 'idle' }
   | { kind: 'consuming' }
   | { kind: 'revealed'; plaintext: string }
@@ -24,15 +26,16 @@ const DECRYPT_FAILED_MESSAGE =
   'El secreto se obtuvo del servidor, pero no se pudo descifrar: el enlace parece alterado o incompleto. ' +
   'Este acceso de un solo uso ya fue consumido; pedile al remitente que comparta el secreto nuevamente.'
 
-const UNCERTAIN_MESSAGE =
+export const UNCERTAIN_MESSAGE =
   'No se pudo confirmar la respuesta del servidor. Es posible que el secreto ya se haya obtenido; ' +
   'si al reintentar figura como ya obtenido, pedile al remitente un enlace nuevo.'
 
-export function OpenPage() {
+/** The props exist only for the dev states page (/_estados); the app renders <OpenPage /> with the defaults. */
+export function OpenPage({ fragment, initialPhase = { kind: 'idle' } }: { fragment?: string; initialPhase?: Phase } = {}) {
   const { user, getAccessToken, expireSession } = useAuth()
   // Parsed once, kept in memory for this tab only. Nothing here is sent anywhere until the explicit click.
-  const [link] = useState<ShareLink | null>(() => parseShareFragment(window.location.hash))
-  const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
+  const [link] = useState<ShareLink | null>(() => parseShareFragment(fragment ?? window.location.hash))
+  const [phase, setPhase] = useState<Phase>(initialPhase)
 
   if (link === null) {
     return (
@@ -91,10 +94,7 @@ export function OpenPage() {
       {phase.kind === 'revealed' && (
         <Card>
           <CardContent>
-            <Field>
-              <FieldLabel htmlFor="revealed">Secreto revelado</FieldLabel>
-              <Textarea id="revealed" readOnly rows={6} className="min-h-36 font-mono" value={phase.plaintext} />
-            </Field>
+            <RevealedSecret plaintext={phase.plaintext} />
           </CardContent>
           <CardFooter className="flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -169,5 +169,25 @@ function ErrorAlert({ children }: { children: ReactNode }) {
       <CircleAlert />
       <AlertDescription>{children}</AlertDescription>
     </Alert>
+  )
+}
+
+/** Blurred until the eye button is pressed, like the created links; the copy button works either way. */
+function RevealedSecret({ plaintext }: { plaintext: string }) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <Field>
+      <div className="flex items-center justify-between gap-3">
+        <FieldLabel htmlFor="revealed">Secreto revelado</FieldLabel>
+        <RevealToggle label="Mostrar secreto" revealed={visible} onToggle={() => setVisible((value) => !value)} />
+      </div>
+      <Textarea
+        id="revealed"
+        readOnly
+        rows={6}
+        className={cn('min-h-36 font-mono transition-[filter]', !visible && BLURRED)}
+        value={plaintext}
+      />
+    </Field>
   )
 }

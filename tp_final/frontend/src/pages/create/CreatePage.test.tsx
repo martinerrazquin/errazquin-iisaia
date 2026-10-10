@@ -131,10 +131,10 @@ describe('CreatePage', () => {
     const code = list.querySelector('li[data-recipient="bgonzalez"] code')
     const [eye] = screen.getAllByRole('button', { name: 'Mostrar enlace' })
     expect(eye).toHaveAttribute('aria-pressed', 'false')
-    expect(code).toHaveClass('blur-xs')
+    expect(code).toHaveClass('text-transparent')
     await userEvent.click(eye)
     expect(eye).toHaveAttribute('aria-pressed', 'true')
-    expect(code).not.toHaveClass('blur-xs')
+    expect(code).not.toHaveClass('text-transparent')
   })
 
   it('rejects email recipients without calling the API', async () => {
