@@ -18,15 +18,33 @@ function item(overrides: Partial<AdminShareItem> = {}): AdminShareItem {
   }
 }
 
+const obtained = { recipient_identity: 'bgonzalez', consumed_at: '2026-10-08T11:00:00Z' }
+
 describe('shareStatus', () => {
   it.each([
     ['Activo', item()],
     ['Vencido', item({ expires_at: '2026-10-08T11:59:59Z' })],
     ['Revocado', item({ revoked_at: '2026-10-08T11:00:00Z' })],
     ['Contenido eliminado', item({ payload_deleted_at: '2026-10-08T11:00:00Z', revoked_at: '2026-10-08T11:00:00Z' })],
-    ['Obtenido por todos', item({ grants: [{ recipient_identity: 'bgonzalez', consumed_at: '2026-10-08T11:00:00Z' }] })],
+    ['Obtenido por todos', item({ grants: [obtained] })],
   ])('derives %s', (expected, share) => {
     expect(shareStatus(share, NOW)).toBe(expected)
+  })
+
+  it.each([
+    ['expired', item({ grants: [obtained], expires_at: '2026-10-08T11:59:59Z' })],
+    ['revoked', item({ grants: [obtained], revoked_at: '2026-10-08T11:30:00Z' })],
+    ['deleted', item({ grants: [obtained], payload_deleted_at: '2026-10-08T11:30:00Z' })],
+  ])('keeps "Obtenido por todos" once every recipient obtained it, even if later %s', (_name, share) => {
+    expect(shareStatus(share, NOW)).toBe('Obtenido por todos')
+  })
+
+  it('a partly obtained share still shows its lifecycle status', () => {
+    const partly = item({
+      expires_at: '2026-10-08T11:59:59Z',
+      grants: [obtained, { recipient_identity: 'csaul', consumed_at: null }],
+    })
+    expect(shareStatus(partly, NOW)).toBe('Vencido')
   })
 })
 

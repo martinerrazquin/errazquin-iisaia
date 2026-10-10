@@ -1,10 +1,11 @@
 import type { AdminShareItem } from '../../api'
 
+/** Delivery to everyone is the final outcome, so it wins over expiry, revocation or deletion that came after it. */
 export function shareStatus(item: AdminShareItem, now: Date): string {
+  if (item.grants.length > 0 && item.grants.every((grant) => grant.consumed_at !== null)) return 'Obtenido por todos'
   if (item.payload_deleted_at) return 'Contenido eliminado'
   if (item.revoked_at) return 'Revocado'
   if (new Date(item.expires_at) <= now) return 'Vencido'
-  if (item.grants.length > 0 && item.grants.every((grant) => grant.consumed_at !== null)) return 'Obtenido por todos'
   return 'Activo'
 }
 

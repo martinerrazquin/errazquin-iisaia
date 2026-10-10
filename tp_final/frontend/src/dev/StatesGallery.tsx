@@ -61,7 +61,8 @@ const adminPage: AdminSharesPage = {
       creator_identity: 'csaul',
       label: 'API key proveedor',
       created_at: hoursAgo(50),
-      expires_at: inOneHour,
+      // Expired after everyone obtained it: still "Obtenido por todos".
+      expires_at: hoursAgo(2),
       revoked_at: null,
       payload_deleted_at: null,
       grants: [{ recipient_identity: 'dlopez', consumed_at: hoursAgo(49) }],
