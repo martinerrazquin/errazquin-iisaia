@@ -1,6 +1,6 @@
  ▐▛███▛█   Claude Code v2.1.295
 ▝▜██████▀  Opus 5.5 · Claude Max
- ▝▝   ▝▝   ~/Documents/own/MIA/errazquin-iisaia/tp_final
+ ▝▝   ▝▝   ~/Documents/redacted/errazquin-iisaia/tp_final
 
 
 ❯ /clear                                                                        
@@ -246,8 +246,8 @@
 
   Ran 4 shell commands (ctrl+o to expand)
 
-● Bash(mkdir -p /home/martin/Documents/own/MIA/errazquin-iisaia/tp_final/slides
-      && cd /home/martin/Documents/own/MIA/errazquin-iisaia/tp_final/slides &&
+● Bash(mkdir -p /home/user/Documents/redacted/errazquin-iisaia/tp_final/slides
+      && cd /home/user/Documents/redacted/errazquin-iisaia/tp_final/slides &&
       cat > package.…)
   ⎿      "5.2.9": "2026-05-17T02:45:05.737Z",
          "5.3.0": "2026-07-19T03:50:13.458Z"
@@ -354,7 +354,7 @@
 
   Read 4 files, ran 1 shell command (ctrl+o to expand)
 
-● Bash(cd /home/martin/Documents/own/MIA/errazquin-iisaia/tp_final/slides &&
+● Bash(cd /home/user/Documents/redacted/errazquin-iisaia/tp_final/slides &&
       python3 - <<'EOF'
       p='style.css'; s=open(p).read()…)
   ⎿  slides 6 errors []
