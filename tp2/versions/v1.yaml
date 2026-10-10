@@ -1,0 +1,311 @@
+openapi: 3.2.1
+info:
+  title: Messaging API
+  version: 1.0.0
+  description: |-
+    Minimal v1 API for group conversations and messages.
+
+    Authentication is required for every operation. A conversation is only
+    visible to its participants; inaccessible conversations are reported as 404.
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Conversations
+  - name: Messages
+  - name: Events
+
+paths:
+  /v1/conversations:
+    get:
+      tags: [Conversations]
+      operationId: listConversations
+      summary: List conversations
+      responses:
+        '200':
+          description: Conversations visible to the authenticated user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Conversations]
+      operationId: createConversation
+      summary: Create a group conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '201':
+          description: Conversation created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '400':
+          description: Invalid request or one or more participants are invalid.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/conversations/{conversationId}:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Conversations]
+      operationId: getConversation
+      summary: Get a conversation
+      responses:
+        '200':
+          description: Conversation details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Conversation does not exist or is inaccessible to the caller.
+
+  /v1/conversations/{conversationId}/messages:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Messages]
+      operationId: listMessages
+      summary: List message history
+      description: |-
+        Returns a page of messages ordered from oldest to newest within that
+        page. The first request returns the most recent page; `next_cursor`
+        can be used to retrieve the next older page. A null `next_cursor`
+        means there are no older messages.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of messages to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque cursor returned as `next_cursor` by the previous page.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A page of message history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagePage'
+        '400':
+          description: Invalid pagination parameters.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Conversation does not exist or is inaccessible to the caller.
+
+    post:
+      tags: [Messages]
+      operationId: createMessage
+      summary: Send a message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageRequest'
+      responses:
+        '201':
+          description: Message created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Invalid message.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Conversation does not exist or is inaccessible to the caller.
+
+  /v1/events:
+    get:
+      tags: [Events]
+      operationId: subscribeToEvents
+      summary: Subscribe to events
+      description: |-
+        Opens a Server-Sent Events (SSE) stream. Event names are
+        `conversation.created` and `message.created`. Each SSE `data` field
+        contains JSON text representing the created Conversation or Message.
+        Events are scoped to conversations visible to the authenticated user.
+      responses:
+        '200':
+          description: Server-Sent Events stream.
+          content:
+            text/event-stream:
+              itemSchema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication.
+
+  parameters:
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      description: ID of the conversation.
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Authentication is missing or invalid.
+
+  schemas:
+    Conversation:
+      type: object
+      description: A group conversation.
+      required:
+        - id
+        - participant_ids
+        - created_at
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          description: Optional conversation title; omitted when not set.
+        participant_ids:
+          type: array
+          minItems: 2
+          uniqueItems: true
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        last_message_at:
+          type: string
+          format: date-time
+          description: Omitted when the conversation has no messages.
+
+    CreateConversationRequest:
+      type: object
+      required:
+        - participant_ids
+      properties:
+        title:
+          type: string
+        participant_ids:
+          type: array
+          minItems: 2
+          uniqueItems: true
+          items:
+            type: string
+      additionalProperties: false
+
+    Message:
+      type: object
+      required:
+        - id
+        - conversation_id
+        - sender_id
+        - content
+        - created_at
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        sender_id:
+          type: string
+        content:
+          type: string
+          minLength: 1
+        created_at:
+          type: string
+          format: date-time
+
+    CreateMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+      additionalProperties: false
+
+    MessagePage:
+      type: object
+      required:
+        - messages
+        - next_cursor
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        next_cursor:
+          type: [string, 'null']
+          description: Opaque cursor for the next older page, or null when exhausted.
+
+    Event:
+      description: >-
+        One event from the SSE stream. The SSE `data` field is JSON text;
+        its decoded value is a Conversation for `conversation.created` or a
+        Message for `message.created`.
+      oneOf:
+        - $ref: '#/components/schemas/ConversationCreatedEvent'
+        - $ref: '#/components/schemas/MessageCreatedEvent'
+
+    ConversationCreatedEvent:
+      type: object
+      required:
+        - event
+        - data
+      properties:
+        event:
+          const: conversation.created
+        data:
+          type: string
+          contentMediaType: application/json
+          contentSchema:
+            $ref: '#/components/schemas/Conversation'
+      additionalProperties: false
+
+    MessageCreatedEvent:
+      type: object
+      required:
+        - event
+        - data
+      properties:
+        event:
+          const: message.created
+        data:
+          type: string
+          contentMediaType: application/json
+          contentSchema:
+            $ref: '#/components/schemas/Message'
+      additionalProperties: false
